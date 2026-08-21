@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: backend
+  jpa:
+    hibernate:
+      ddl-auto: validate # KHÔNG BAO GIỜ update — xem AGENTS.md
+  flyway:
+    enabled: true
