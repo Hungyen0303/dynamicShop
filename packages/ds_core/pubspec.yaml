@@ -1,0 +1,21 @@
+name: ds_core
+description: >
+  Routing tối thiểu, storage (cache layout xuống đĩa), telemetry, và extension parse JSON
+  khoan dung. Nền tảng cho mọi package ds_* khác — KHÔNG phụ thuộc package ds_* nào.
+version: 0.1.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path_provider: ^2.1.0
+  shared_preferences: ^2.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0

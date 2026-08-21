@@ -1,0 +1,29 @@
+name: ds_sdui
+description: >
+  Registry (type → builder) + renderStorefront(layout, data) — hai chốt chặn bắt buộc:
+  block lạ không có trong registry → SizedBox.shrink() + telemetry (forward compat), lỗi
+  lúc build một block → SizedBox.shrink() + telemetry (error boundary). KHÔNG được bỏ
+  hoặc "đơn giản hoá" hai chốt này (docs/10-customer-app.md).
+version: 0.1.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ds_core:
+    path: ../ds_core
+  ds_tokens:
+    path: ../ds_tokens
+  ds_blocks:
+    path: ../ds_blocks
+  ds_api:
+    path: ../ds_api
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0

@@ -1,0 +1,53 @@
+{
+  "layout": {
+    "schema_version": 3,
+    "theme": { "primary": "#5B21B6", "surface": "#FFFFFF", "radius_md": 8, "font_family": "Inter" },
+    "screens": {
+      "home": {
+        "blocks": [
+          {
+            "id": "unknown_1",
+            "type": "video_carousel_chua_ton_tai",
+            "v": 1,
+            "props": { "url": "https://example.com" },
+            "data_ref": false
+          },
+          {
+            "id": "banner_1",
+            "type": "image_banner",
+            "v": 1,
+            "props": { "image_url": "" },
+            "data_ref": false
+          },
+          {
+            "id": "info_1",
+            "type": "info_card",
+            "v": 1,
+            "props": { "title": "Quán Test", "body": "Mở cửa 8h-21h hàng ngày" },
+            "data_ref": false
+          },
+          {
+            "id": "spacer_1",
+            "type": "spacer",
+            "v": 1,
+            "props": { "height_units": 2 },
+            "data_ref": false
+          },
+          {
+            "id": "list_1",
+            "type": "product_list",
+            "v": 1,
+            "props": { "show_thumbnail": true, "dense": false },
+            "data_ref": "products:cat-test"
+          }
+        ]
+      }
+    }
+  },
+  "data": {
+    "products:cat-test": [
+      { "id": "p1", "name": "Món test 1", "price": 20000, "imageUrl": null, "available": true },
+      { "id": "p2", "name": "Món test 2 hết hàng", "price": 25000, "imageUrl": null, "available": false }
+    ]
+  }
+}

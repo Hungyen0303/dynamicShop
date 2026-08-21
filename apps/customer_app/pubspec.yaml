@@ -1,0 +1,63 @@
+name: customer_app
+description: "DynamicShop — app khách, storefront tải runtime qua SDUI."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0-210.2.beta
+
+# Stage 0: path: dependency trực tiếp — CHƯA dùng melos (docs/70-stages.md).
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  ds_core:
+    path: ../../packages/ds_core
+  ds_tokens:
+    path: ../../packages/ds_tokens
+  ds_components:
+    path: ../../packages/ds_components
+  ds_blocks:
+    path: ../../packages/ds_blocks
+  ds_sdui:
+    path: ../../packages/ds_sdui
+  ds_api:
+    path: ../../packages/ds_api
+
+  http: ^1.2.0
+  google_fonts: ^6.1.0
+  path_provider: ^2.1.0
+  shared_preferences: ^2.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/default_storefront.json
+
+  fonts:
+    # bundled_fonts (contracts/tokens.json) — hai font phổ biến nhất bundle sẵn trong app,
+    # hiện ngay không cần chờ mạng (docs/10-customer-app.md mục "Font"). Còn lại trong
+    # allowed_fonts tải qua google_fonts runtime (xem packages/ds_tokens/lib/src/ds_text_style.dart).
+    - family: Be Vietnam Pro
+      fonts:
+        - asset: assets/fonts/BeVietnamPro-Regular.ttf
+        - asset: assets/fonts/BeVietnamPro-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/BeVietnamPro-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BeVietnamPro-Bold.ttf
+          weight: 700
+    - family: Inter
+      fonts:
+        # font biến thiên (variable font) — Skia tự nội suy trọng lượng theo trục "wght"
+        # dù chỉ khai báo một file, không cần liệt kê từng weight riêng.
+        - asset: assets/fonts/Inter-Variable.ttf

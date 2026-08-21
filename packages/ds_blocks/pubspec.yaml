@@ -1,0 +1,28 @@
+name: ds_blocks
+description: >
+  8 block SDUI (contracts/blocks.registry.json) + StyleResolver. Pure, không tự gọi
+  network — data đã có sẵn từ StorefrontResponse.data. Chỉ đọc token, không hardcode màu
+  / bo góc / spacing. Phải build được cho web (studio dùng chung) — không dart:io.
+version: 0.1.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ds_core:
+    path: ../ds_core
+  ds_tokens:
+    path: ../ds_tokens
+  ds_components:
+    path: ../ds_components
+  ds_api:
+    path: ../ds_api
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0

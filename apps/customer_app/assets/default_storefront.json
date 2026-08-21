@@ -1,0 +1,35 @@
+{
+  "layout": {
+    "schema_version": 3,
+    "theme": {
+      "primary": "#E23744",
+      "surface": "#FFFFFF",
+      "radius_md": 12,
+      "font_family": "Be Vietnam Pro"
+    },
+    "screens": {
+      "home": {
+        "blocks": [
+          {
+            "id": "offline_hero",
+            "type": "hero_banner",
+            "v": 1,
+            "props": { "image_url": "", "aspect_ratio": 1.777, "title": "DynamicShop" },
+            "data_ref": false
+          },
+          {
+            "id": "offline_info",
+            "type": "info_card",
+            "v": 1,
+            "props": {
+              "title": "Không có kết nối",
+              "body": "Không tải được menu mới nhất. Đang hiển thị bản dự phòng — vui lòng kiểm tra mạng và thử lại."
+            },
+            "data_ref": false
+          }
+        ]
+      }
+    }
+  },
+  "data": {}
+}

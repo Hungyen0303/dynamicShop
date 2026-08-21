@@ -1,0 +1,22 @@
+name: ds_components
+description: >
+  Widget dùng chung tối thiểu (DsButton, DsCard, DsPriceText…) — chỉ đọc token từ
+  `context`, không nhận màu qua constructor. Phải build được cho web (studio dùng chung
+  sau này) — không dart:io, không plugin chỉ có trên mobile.
+version: 0.1.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ds_tokens:
+    path: ../ds_tokens
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0

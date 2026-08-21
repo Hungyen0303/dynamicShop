@@ -1,0 +1,23 @@
+name: ds_api
+description: >
+  Model tay khớp 3 shape API thật của backend Stage 0 (storefront, order) + ApiClient
+  mỏng bọc `http`. Stage 0 chưa có generator từ contracts/openapi.yaml (xem
+  contracts/README.md) — sinh tự động là việc của stage sau.
+version: 0.1.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ds_core:
+    path: ../ds_core
+  http: ^1.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0

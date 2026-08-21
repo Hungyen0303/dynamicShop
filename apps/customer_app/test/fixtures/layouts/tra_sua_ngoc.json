@@ -1,0 +1,65 @@
+{
+  "layout": {
+    "schema_version": 3,
+    "theme": { "primary": "#0EA5A4", "surface": "#F5FBFB", "radius_md": 20, "font_family": "Inter" },
+    "screens": {
+      "home": {
+        "blocks": [
+          {
+            "id": "hero_1",
+            "type": "hero_banner",
+            "v": 1,
+            "props": { "image_url": "", "aspect_ratio": 1.777, "title": "Trà Sữa Ngọc — tươi mỗi ngày" },
+            "data_ref": false
+          },
+          {
+            "id": "promo_1",
+            "type": "promo_strip",
+            "v": 1,
+            "props": { "text": "Mua 2 tặng 1 mỗi thứ Ba", "bg_token": "primary", "dismissible": true },
+            "data_ref": false
+          },
+          {
+            "id": "cats_1",
+            "type": "category_row",
+            "v": 1,
+            "props": { "style": "circle", "show_all": true },
+            "data_ref": "categories"
+          },
+          {
+            "id": "grid_trasua",
+            "type": "product_grid",
+            "v": 1,
+            "props": { "columns": 2, "card_style": "overlay", "show_price": true },
+            "data_ref": "products:22222222-2222-2222-2222-200000000001"
+          },
+          {
+            "id": "grid_traitcay",
+            "type": "product_grid",
+            "v": 1,
+            "props": { "columns": 2, "card_style": "bordered", "show_price": true },
+            "data_ref": "products:22222222-2222-2222-2222-200000000002"
+          }
+        ]
+      }
+    }
+  },
+  "data": {
+    "categories": [
+      { "id": "22222222-2222-2222-2222-200000000001", "name": "Trà sữa", "sortOrder": 1 },
+      { "id": "22222222-2222-2222-2222-200000000002", "name": "Trà trái cây", "sortOrder": 2 }
+    ],
+    "products:22222222-2222-2222-2222-200000000001": [
+      { "id": "22222222-2222-2222-2222-200000000011", "name": "Trà sữa trân châu đường đen", "price": 39000, "imageUrl": null, "available": true },
+      { "id": "22222222-2222-2222-2222-200000000012", "name": "Trà sữa Thái xanh", "price": 35000, "imageUrl": null, "available": true },
+      { "id": "22222222-2222-2222-2222-200000000013", "name": "Trà sữa matcha", "price": 38000, "imageUrl": null, "available": true },
+      { "id": "22222222-2222-2222-2222-200000000014", "name": "Trà sữa khoai môn", "price": 35000, "imageUrl": null, "available": true },
+      { "id": "22222222-2222-2222-2222-200000000015", "name": "Hồng trà sữa", "price": 32000, "imageUrl": null, "available": true }
+    ],
+    "products:22222222-2222-2222-2222-200000000002": [
+      { "id": "22222222-2222-2222-2222-200000000021", "name": "Trà đào cam sả", "price": 42000, "imageUrl": null, "available": true },
+      { "id": "22222222-2222-2222-2222-200000000022", "name": "Trà vải", "price": 38000, "imageUrl": null, "available": true },
+      { "id": "22222222-2222-2222-2222-200000000023", "name": "Trà chanh dây", "price": 35000, "imageUrl": null, "available": true }
+    ]
+  }
+}

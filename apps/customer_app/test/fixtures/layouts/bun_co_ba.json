@@ -1,0 +1,72 @@
+{
+  "layout": {
+    "schema_version": 3,
+    "theme": { "primary": "#E23744", "surface": "#FFFFFF", "radius_md": 12, "font_family": "Be Vietnam Pro" },
+    "screens": {
+      "home": {
+        "blocks": [
+          {
+            "id": "hero_1",
+            "type": "hero_banner",
+            "v": 1,
+            "props": { "image_url": "", "aspect_ratio": 1.777, "title": "Bún Cô Ba — quán nhà làm" },
+            "data_ref": false
+          },
+          {
+            "id": "cats_1",
+            "type": "category_row",
+            "v": 1,
+            "props": { "style": "chip", "show_all": true },
+            "data_ref": "categories"
+          },
+          {
+            "id": "grid_bun",
+            "type": "product_grid",
+            "v": 1,
+            "props": { "columns": 2, "card_style": "elevated", "show_price": true },
+            "data_ref": "products:11111111-1111-1111-1111-100000000001"
+          },
+          {
+            "id": "grid_com",
+            "type": "product_grid",
+            "v": 1,
+            "props": { "columns": 2, "card_style": "elevated", "show_price": true },
+            "data_ref": "products:11111111-1111-1111-1111-100000000002"
+          },
+          {
+            "id": "grid_nuoc",
+            "type": "product_grid",
+            "v": 1,
+            "props": { "columns": 3, "card_style": "minimal", "show_price": true },
+            "data_ref": "products:11111111-1111-1111-1111-100000000003"
+          }
+        ]
+      }
+    }
+  },
+  "data": {
+    "categories": [
+      { "id": "11111111-1111-1111-1111-100000000001", "name": "Bún", "sortOrder": 1 },
+      { "id": "11111111-1111-1111-1111-100000000002", "name": "Cơm", "sortOrder": 2 },
+      { "id": "11111111-1111-1111-1111-100000000003", "name": "Nước uống", "sortOrder": 3 }
+    ],
+    "products:11111111-1111-1111-1111-100000000001": [
+      { "id": "11111111-1111-1111-1111-100000000011", "name": "Bún bò Huế", "price": 45000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000012", "name": "Bún riêu cua", "price": 40000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000013", "name": "Bún chả Hà Nội", "price": 42000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000014", "name": "Bún mọc", "price": 38000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000015", "name": "Bún ốc chuối đậu", "price": 40000, "imageUrl": null, "available": true }
+    ],
+    "products:11111111-1111-1111-1111-100000000002": [
+      { "id": "11111111-1111-1111-1111-100000000021", "name": "Cơm tấm sườn bì chả", "price": 45000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000022", "name": "Cơm gà xối mỡ", "price": 42000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000023", "name": "Cơm sườn nướng", "price": 40000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000024", "name": "Cơm chay thập cẩm", "price": 35000, "imageUrl": null, "available": true }
+    ],
+    "products:11111111-1111-1111-1111-100000000003": [
+      { "id": "11111111-1111-1111-1111-100000000031", "name": "Trà đá", "price": 5000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000032", "name": "Nước sâm", "price": 15000, "imageUrl": null, "available": true },
+      { "id": "11111111-1111-1111-1111-100000000033", "name": "Nước chanh dây", "price": 18000, "imageUrl": null, "available": true }
+    ]
+  }
+}

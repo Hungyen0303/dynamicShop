@@ -1,0 +1,23 @@
+name: ds_tokens
+description: >
+  Design token của DynamicShop — nguồn sự thật là contracts/tokens.json. Stage 0 viết
+  model bằng tay (chưa có generator, xem contracts/README.md). Không sửa bằng tay sau khi
+  có `make generate` ở stage sau.
+version: 0.1.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ds_core:
+    path: ../ds_core
+  google_fonts: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
