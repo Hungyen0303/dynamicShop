@@ -18,8 +18,9 @@ import vn.dynamicshop.common.tenant.TenantRepository;
  * (batch theo tenant_id) ở Stage sau.
  *
  * Việc xử lý thật nằm ở {@link OutboxBatchProcessor} — bean RIÊNG, gọi qua injected
- * reference chứ không phải self-invocation, để @Transactional/TenantGucInterceptor áp
- * dụng đúng (self-invocation bỏ qua toàn bộ proxy AOP của Spring).
+ * reference chứ không phải self-invocation, để @Transactional áp dụng đúng (self-invocation
+ * bỏ qua toàn bộ proxy AOP của Spring) — và nhờ đó GUC tenant cũng được set đúng lúc, vì
+ * {@code TenantAwareJpaTransactionManager} set GUC ngay khi transaction mở.
  */
 @Component
 public class OutboxWorker {

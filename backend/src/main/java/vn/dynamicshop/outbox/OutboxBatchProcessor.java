@@ -9,10 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Tách RIÊNG khỏi {@link OutboxWorker} — bean khác, gọi qua injected reference, KHÔNG phải
- * self-invocation. Spring AOP (bao gồm @Transactional lẫn TenantGucInterceptor của ta)
- * chỉ áp dụng khi method được gọi XUYÊN QUA proxy; gọi {@code this.method()} trong cùng
- * class bỏ qua proxy hoàn toàn — bug thật đã gặp: entity bị đổi field nhưng không transaction
- * nào bao quanh để flush, mất thay đổi trong im lặng.
+ * self-invocation. Spring AOP (@Transactional) chỉ áp dụng khi method được gọi XUYÊN QUA
+ * proxy; gọi {@code this.method()} trong cùng class bỏ qua proxy hoàn toàn — bug thật đã
+ * gặp: entity bị đổi field nhưng không transaction nào bao quanh để flush, mất thay đổi
+ * trong im lặng. GUC tenant cũng gián tiếp phụ thuộc @Transactional thật sự chạy —
+ * {@code TenantAwareJpaTransactionManager} set GUC ngay lúc transaction mở.
  */
 @Service
 public class OutboxBatchProcessor {

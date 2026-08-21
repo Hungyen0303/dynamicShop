@@ -3,6 +3,7 @@ package vn.dynamicshop.tenant;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,8 @@ class TenantIsolationTest extends AbstractIntegrationTest {
     private OrderRepository orderRepository;
     @Autowired
     private JdbcTemplate jdbcTemplate;
+    @Autowired
+    private RawSqlProbe rawSqlProbe;
 
     private Tenant createTenant(String slug) {
         // Bảng tenants không có RLS — không cần TenantContext để ghi.
@@ -113,6 +116,51 @@ class TenantIsolationTest extends AbstractIntegrationTest {
         String guc = jdbcTemplate.queryForObject(
                 "SELECT current_setting('app.tenant_id', true)", String.class);
         assertThat(guc).isNullOrEmpty();
+    }
+
+    /**
+     * 🔴 Bằng chứng THẬT cho "RLS là người từ chối cuối cùng" — độc lập hoàn toàn với
+     * Hibernate @TenantId. {@link RawSqlProbe} chạy native SELECT KHÔNG có WHERE nào theo
+     * tenant (mô phỏng đúng "ai đó viết native query quên WHERE" trong SKILL.md); nếu RLS
+     * không thực sự chặn ở tầng Postgres — ví dụ DataSource chính lỡ là superuser/BYPASSRLS,
+     * hoặc ai đó xoá CREATE POLICY khỏi V1 — test này đỏ ngay cả khi ba test phía trên vẫn
+     * xanh (vì chúng đi qua repository, đã bị Hibernate lọc sẵn).
+     */
+    @Test
+    void rls_tu_no_chan_native_query_khong_qua_hibernate() {
+        Tenant a = createTenant("rls-a-" + UUID.randomUUID());
+        Tenant b = createTenant("rls-b-" + UUID.randomUUID());
+
+        seedOrder(a, "RLS-A-001");
+        seedOrder(a, "RLS-A-002");
+        Order orderB = seedOrder(b, "RLS-B-001");
+
+        TenantContext.set(b.getId());
+        try {
+            List<Map<String, Object>> rows = rawSqlProbe.selectAllOrdersRaw();
+            assertThat(rows).hasSize(1);
+            assertThat(rows.get(0).get("id")).isEqualTo(orderB.getId());
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /**
+     * Drift-guard cho chính bài học vừa sửa: nếu ai đó (hoặc agent sau này) lỡ trỏ
+     * spring.datasource lại về role superuser/BYPASSRLS trong test, test này đỏ ngay lập
+     * tức thay vì để RLS âm thầm bị vô hiệu hoá trong im lặng.
+     */
+    @Test
+    void datasource_chinh_khong_phai_superuser_va_khong_bypassrls() {
+        Boolean isSuperuser = jdbcTemplate.queryForObject(
+                "SELECT rolsuper FROM pg_roles WHERE rolname = current_user", Boolean.class);
+        Boolean bypassRls = jdbcTemplate.queryForObject(
+                "SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user", Boolean.class);
+
+        assertThat(isSuperuser).as("DataSource chính test đang dùng role SUPERUSER — RLS sẽ bị bỏ qua vô điều kiện")
+                .isFalse();
+        assertThat(bypassRls).as("DataSource chính test đang dùng role BYPASSRLS — RLS sẽ bị bỏ qua vô điều kiện")
+                .isFalse();
     }
 
     @Test

@@ -1,11 +1,13 @@
 package vn.dynamicshop.common.config;
 
 import com.zaxxer.hikari.HikariDataSource;
+import javax.sql.DataSource;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * DataSource CHÍNH của app — role {@code app_user}, CHỊU Row Level Security.
@@ -40,5 +42,22 @@ public class PrimaryDataSourceConfig {
     @ConfigurationProperties(prefix = "spring.datasource.hikari")
     public HikariDataSource dataSource(DataSourceProperties dataSourceProperties) {
         return dataSourceProperties.initializeDataSourceBuilder().type(HikariDataSource.class).build();
+    }
+
+    /**
+     * 🔴 Sửa sau review: khai báo tường minh, ĐỪNG xoá — {@code AdminDataSourceConfig} định
+     * nghĩa bean {@code adminJdbcTemplate} kiểu {@code JdbcTemplate}. Autoconfigure mặc định
+     * của Boot cho {@code JdbcTemplate} có {@code @ConditionalOnMissingBean(JdbcTemplate.class)}
+     * — check THEO TYPE, không theo tên — nên hễ {@code adminJdbcTemplate} tồn tại, Boot sẽ
+     * KHÔNG tự tạo bean "jdbcTemplate" mặc định cho DataSource chính nữa. Hậu quả: bất kỳ chỗ
+     * nào {@code @Autowired JdbcTemplate} không kèm @Qualifier sẽ vô tình lấy NHẦM bean admin
+     * (BYPASSRLS) — đúng bug đã bắt được lúc review (test cô lập tenant lấy nhầm JdbcTemplate
+     * admin, RLS bị bỏ qua trong im lặng). Khai báo @Primary tường minh ở đây để không bao giờ
+     * mơ hồ, giống triết lý tách vật lý DataSource phía trên.
+     */
+    @Primary
+    @Bean(name = "jdbcTemplate")
+    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
     }
 }
