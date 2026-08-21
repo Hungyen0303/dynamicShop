@@ -1,0 +1,54 @@
+{
+  "$comment": "Công thức 6 chỉ số sống còn. BE tính, web KHÔNG tính lại.",
+  "version": 1,
+  "metrics": {
+    "week4_activation": {
+      "label": "% shop có ≥1 đơn ở tuần thứ 4",
+      "formula": "count(tenants có ≥1 order trong ngày 22–28 kể từ onboard) / count(tenants onboard ≥28 ngày)",
+      "unit": "percent",
+      "target": 50,
+      "alert_below": 30,
+      "note": "Tuần 1–2 shop còn tò mò, chưa phản ánh gì. Dưới 30% → sửa sản phẩm, đừng tuyển sales."
+    },
+    "orders_per_tenant_per_week": {
+      "label": "Số đơn/shop/tuần",
+      "formula": "count(orders 7 ngày gần nhất) group by tenant_id",
+      "unit": "count",
+      "display": "distribution",
+      "note": "Hiển thị phân phối, không chỉ trung bình. Đây là chỉ số dự báo churn tốt nhất — tìm ngưỡng ma thuật."
+    },
+    "month3_retention": {
+      "label": "Retention tháng 3",
+      "formula": "count(tenants còn trả tiền ở tháng 3) / count(tenants onboard ≥90 ngày)",
+      "unit": "percent",
+      "target": 60,
+      "alert_below": 60,
+      "note": "Dưới 60% → TUYỆT ĐỐI KHÔNG SCALE."
+    },
+    "gmv": {
+      "label": "GMV",
+      "formula": "sum(orders.total) where order_status = COMPLETED",
+      "unit": "vnd",
+      "display": "trend_12w"
+    },
+    "cac_ltv_ratio": {
+      "label": "CAC vs LTV",
+      "formula": "cac / (arpu_thang * so_thang_giu_trung_binh)",
+      "unit": "ratio",
+      "alert_above": 0.333,
+      "note": "Quyết định được phép trả CTV bao nhiêu. Cần nhập CAC thủ công."
+    },
+    "time_to_first_order": {
+      "label": "Time-to-first-order",
+      "formula": "median(first_order.created_at - tenant.onboarded_at)",
+      "unit": "hours",
+      "target": 24,
+      "alert_above": 24,
+      "note": ">48h → shop gần như chắc chắn chết. Kiểm soát được ngay bằng quy trình onboarding."
+    }
+  },
+  "$notes": {
+    "business_day": "Mọi tổng hợp theo ngày dùng tenants.business_day_start, KHÔNG dùng nửa đêm.",
+    "single_source": "Web gọi API, không tự tính lại. verify:metrics kiểm tra điều này."
+  }
+}

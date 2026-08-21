@@ -1,0 +1,50 @@
+{
+  "$template": "fnb-do-uong",
+  "label": "Quán nước / trà sữa",
+  "theme": {
+    "primary": "#7B2CBF",
+    "font_family": "Quicksand",
+    "radius_md": 20
+  },
+  "layout": {
+    "home": {
+      "blocks": [
+        {
+          "id": "hero",
+          "type": "hero_banner",
+          "v": 1,
+          "props": {
+            "aspect_ratio": 2.0
+          }
+        },
+        {
+          "id": "cat",
+          "type": "category_row",
+          "v": 1,
+          "props": {
+            "style": "circle"
+          },
+          "data_ref": "categories"
+        },
+        {
+          "id": "grid",
+          "type": "product_grid",
+          "v": 1,
+          "props": {
+            "columns": 2,
+            "card_style": "elevated"
+          },
+          "data_ref": "products:{category_id}"
+        },
+        {
+          "id": "info",
+          "type": "info_card",
+          "v": 1,
+          "props": {
+            "title": "Giờ mở cửa"
+          }
+        }
+      ]
+    }
+  }
+}

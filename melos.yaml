@@ -1,0 +1,18 @@
+name: dynamicshop
+
+packages:
+  - packages/**
+  - apps/**
+
+scripts:
+  test:flutter:
+    run: melos exec -- flutter test
+    description: Chạy test cho mọi package Flutter
+
+  analyze:
+    run: melos exec -- flutter analyze
+    description: Phân tích tĩnh
+
+  golden:update:
+    run: melos exec --scope="ds_blocks" -- flutter test --update-goldens
+    description: Cập nhật golden. Chỉ chạy khi CHỦ Ý đổi giao diện.

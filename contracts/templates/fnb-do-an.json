@@ -1,0 +1,50 @@
+{
+  "$template": "fnb-do-an",
+  "label": "Quán ăn",
+  "theme": {
+    "primary": "#E23744",
+    "font_family": "Be Vietnam Pro",
+    "radius_md": 12
+  },
+  "layout": {
+    "home": {
+      "blocks": [
+        {
+          "id": "cat",
+          "type": "category_row",
+          "v": 1,
+          "props": {
+            "style": "chip"
+          },
+          "data_ref": "categories"
+        },
+        {
+          "id": "list",
+          "type": "product_list",
+          "v": 1,
+          "props": {
+            "show_thumbnail": true
+          },
+          "data_ref": "products:{category_id}"
+        },
+        {
+          "id": "promo",
+          "type": "promo_strip",
+          "v": 1,
+          "props": {
+            "text": ""
+          },
+          "hidden": true
+        },
+        {
+          "id": "info",
+          "type": "info_card",
+          "v": 1,
+          "props": {
+            "title": "Giờ mở cửa"
+          }
+        }
+      ]
+    }
+  }
+}

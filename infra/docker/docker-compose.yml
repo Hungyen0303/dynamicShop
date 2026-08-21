@@ -1,0 +1,32 @@
+# DynamicShop — hạ tầng local
+# Chạy:  cp .env.example .env  &&  docker compose up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ds-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dynamicshop}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?bat buoc dat trong .env}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?bat buoc dat trong .env}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?bat buoc dat trong .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ds-pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dynamicshop}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Bỏ comment nếu muốn UI quản trị DB. Hỏi người trước khi bật.
+  # adminer:
+  #   image: adminer:latest
+  #   ports: ["8081:8080"]
+  #   depends_on: [postgres]
+
+volumes:
+  ds-pgdata:

@@ -1,0 +1,35 @@
+{
+  "$comment": "Nguồn sự thật cho state machine đơn hàng. Sinh ra enum Java/Dart và bảng transition. HAI TRỤC ĐỘC LẬP.",
+  "version": 1,
+  "order_status": {
+    "values": ["PENDING", "CONFIRMED", "PREPARING", "READY", "DELIVERING", "COMPLETED", "CANCELLED", "FAILED"],
+    "initial": "PENDING",
+    "terminal": ["COMPLETED", "CANCELLED", "FAILED"],
+    "transitions": {
+      "PENDING":    ["CONFIRMED", "CANCELLED"],
+      "CONFIRMED":  ["PREPARING", "CANCELLED"],
+      "PREPARING":  ["READY", "CANCELLED"],
+      "READY":      ["DELIVERING", "COMPLETED", "CANCELLED"],
+      "DELIVERING": ["COMPLETED", "FAILED"],
+      "COMPLETED":  [],
+      "CANCELLED":  [],
+      "FAILED":     []
+    }
+  },
+  "payment_status": {
+    "values": ["UNPAID", "PAID", "PARTIAL", "REFUNDED"],
+    "initial": "UNPAID",
+    "transitions": {
+      "UNPAID":   ["PAID", "PARTIAL"],
+      "PARTIAL":  ["PAID", "REFUNDED"],
+      "PAID":     ["REFUNDED"],
+      "REFUNDED": []
+    }
+  },
+  "$notes": {
+    "two_axes": "order_status và payment_status ĐỘC LẬP. Khách trả trước rồi quán mới xác nhận; khách trả tiền mặt lúc nhận (PAID ở bước DELIVERING); khách huỷ sau khi đã trả (CANCELLED + PAID → REFUNDED). Nếu định thêm giá trị kiểu CANCELLED_BUT_PAID thì đang vi phạm thiết kế.",
+    "events": "Mọi transition ghi một dòng order_events trong CÙNG transaction.",
+    "single_entry": "Chuyển trạng thái chỉ qua orderStateMachine.transition(). Không setStatus() ở nơi khác.",
+    "adding_states": "Cần người duyệt. App merchant phiên bản cũ sẽ thấy trạng thái lạ — phải không crash."
+  }
+}

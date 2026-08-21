@@ -1,0 +1,312 @@
+{
+  "$comment": "Nguồn sự thật cho block SDUI. Sinh ra registry Dart VÀ màn hình cấu hình trong merchant app.",
+  "schema_version": 3,
+  "$controls": {
+    "$comment": "overridable dùng metadata này để merchant app TỰ SINH màn hình chỉnh. Thêm một entry = màn hình tự có thêm ô, không phải viết UI tay.",
+    "slider": "thanh kéo, cần min/max/step",
+    "color_token": "bảng chọn màu từ token của tenant + tuỳ chọn",
+    "segmented": "vài nút chọn một, cần options",
+    "toggle": "công tắc bật/tắt"
+  },
+  "blocks": {
+    "hero_banner": {
+      "v": 1,
+      "label": "Ảnh bìa",
+      "props": {
+        "image_url": {
+          "type": "string",
+          "default": ""
+        },
+        "aspect_ratio": {
+          "type": "number",
+          "default": 1.777
+        },
+        "title": {
+          "type": "string",
+          "default": null
+        },
+        "action": {
+          "type": "action",
+          "default": null
+        }
+      },
+      "data_ref": false,
+      "overridable": {
+        "radius": {
+          "control": "slider",
+          "min": 0,
+          "max": 24,
+          "step": 2,
+          "label": "Bo góc"
+        },
+        "aspect_ratio": {
+          "control": "segmented",
+          "options": [
+            1.0,
+            1.777,
+            2.0
+          ],
+          "label": "Tỉ lệ ảnh"
+        }
+      }
+    },
+    "category_row": {
+      "v": 1,
+      "label": "Danh mục món",
+      "props": {
+        "style": {
+          "type": "enum",
+          "options": [
+            "chip",
+            "circle"
+          ],
+          "default": "chip"
+        },
+        "show_all": {
+          "type": "bool",
+          "default": true
+        }
+      },
+      "data_ref": "categories",
+      "overridable": {
+        "style": {
+          "control": "segmented",
+          "options": [
+            "chip",
+            "circle"
+          ],
+          "label": "Kiểu hiển thị"
+        },
+        "bg": {
+          "control": "color_token",
+          "label": "Màu nền"
+        }
+      }
+    },
+    "product_grid": {
+      "v": 1,
+      "label": "Lưới món ăn",
+      "props": {
+        "columns": {
+          "type": "enum",
+          "options": [
+            2,
+            3
+          ],
+          "default": 2
+        },
+        "card_style": {
+          "type": "enum",
+          "options": [
+            "minimal",
+            "elevated",
+            "bordered",
+            "overlay"
+          ],
+          "default": "elevated"
+        },
+        "show_price": {
+          "type": "bool",
+          "default": true
+        }
+      },
+      "data_ref": "products:{category_id}",
+      "overridable": {
+        "card_style": {
+          "control": "segmented",
+          "options": [
+            "minimal",
+            "elevated",
+            "bordered",
+            "overlay"
+          ],
+          "labels": [
+            "Đơn giản",
+            "Nổi",
+            "Viền",
+            "Đè chữ"
+          ],
+          "label": "Kiểu thẻ món"
+        },
+        "columns": {
+          "control": "segmented",
+          "options": [
+            2,
+            3
+          ],
+          "label": "Số cột"
+        },
+        "radius": {
+          "control": "slider",
+          "min": 0,
+          "max": 24,
+          "step": 2,
+          "label": "Bo góc"
+        },
+        "bg": {
+          "control": "color_token",
+          "label": "Màu nền"
+        }
+      }
+    },
+    "product_list": {
+      "v": 1,
+      "label": "Danh sách món",
+      "props": {
+        "show_thumbnail": {
+          "type": "bool",
+          "default": true
+        },
+        "dense": {
+          "type": "bool",
+          "default": false
+        }
+      },
+      "data_ref": "products:{category_id}",
+      "overridable": {
+        "dense": {
+          "control": "toggle",
+          "label": "Rút gọn"
+        },
+        "radius": {
+          "control": "slider",
+          "min": 0,
+          "max": 24,
+          "step": 2,
+          "label": "Bo góc"
+        },
+        "bg": {
+          "control": "color_token",
+          "label": "Màu nền"
+        }
+      }
+    },
+    "promo_strip": {
+      "v": 1,
+      "label": "Dải khuyến mãi",
+      "props": {
+        "text": {
+          "type": "string",
+          "default": ""
+        },
+        "bg_token": {
+          "type": "token",
+          "default": "primary"
+        },
+        "dismissible": {
+          "type": "bool",
+          "default": true
+        }
+      },
+      "data_ref": false,
+      "overridable": {
+        "bg": {
+          "control": "color_token",
+          "label": "Màu nền"
+        },
+        "radius": {
+          "control": "slider",
+          "min": 0,
+          "max": 24,
+          "step": 2,
+          "label": "Bo góc"
+        }
+      },
+      "$note": "Không cho override màu chữ — tự suy từ luminance của bg."
+    },
+    "info_card": {
+      "v": 1,
+      "label": "Thông tin quán",
+      "props": {
+        "title": {
+          "type": "string",
+          "default": ""
+        },
+        "body": {
+          "type": "string",
+          "default": ""
+        },
+        "icon": {
+          "type": "string",
+          "default": null
+        }
+      },
+      "data_ref": false,
+      "overridable": {
+        "radius": {
+          "control": "slider",
+          "min": 0,
+          "max": 24,
+          "step": 2,
+          "label": "Bo góc"
+        },
+        "bg": {
+          "control": "color_token",
+          "label": "Màu nền"
+        }
+      }
+    },
+    "image_banner": {
+      "v": 1,
+      "label": "Ảnh quảng cáo",
+      "props": {
+        "image_url": {
+          "type": "string",
+          "default": ""
+        },
+        "action": {
+          "type": "action",
+          "default": null
+        }
+      },
+      "data_ref": false,
+      "overridable": {
+        "radius": {
+          "control": "slider",
+          "min": 0,
+          "max": 24,
+          "step": 2,
+          "label": "Bo góc"
+        }
+      }
+    },
+    "spacer": {
+      "v": 1,
+      "label": "Khoảng trống",
+      "props": {
+        "height_units": {
+          "type": "number",
+          "default": 2
+        }
+      },
+      "data_ref": false,
+      "overridable": {
+        "height": {
+          "control": "slider",
+          "min": 1,
+          "max": 8,
+          "step": 1,
+          "label": "Chiều cao"
+        }
+      }
+    }
+  },
+  "action_types": {
+    "open_category": {
+      "id": "string"
+    },
+    "open_product": {
+      "id": "string"
+    },
+    "external_url": {
+      "url": "string"
+    }
+  },
+  "$notes": {
+    "who_configures": "Chủ quán cấu hình TOÀN BỘ qua merchant app trên điện thoại: đổi thứ tự block, ẩn/hiện, chọn style, chỉnh radius + bg từng block. Không cần web.",
+    "auto_ui": "Màn hình chỉnh trong merchant app SINH TỰ ĐỘNG từ overridable. Thêm entry ở đây = màn hình tự có thêm ô. Không viết UI tay cho từng block.",
+    "not_overridable": "Màu chữ không bao giờ cho chỉnh — tự suy từ luminance của nền. Font chọn từ allowed_fonts trong tokens.json.",
+    "defaults": "Mọi prop PHẢI có default — config cũ thiếu field mới vẫn phải parse được.",
+    "templates": "Xem contracts/templates/ — layout khởi tạo lúc bán app. Chủ quán tự do sửa sau đó."
+  }
+}

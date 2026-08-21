@@ -1,0 +1,47 @@
+# Bí mật — KHÔNG BAO GIỜ commit
+.env
+.env.*
+!.env.example
+**/google-services.json
+**/GoogleService-Info.plist
+**/*.jks
+**/*.keystore
+**/*.p8
+**/*.p12
+**/service-account*.json
+backend/src/main/resources/application-local.yml
+
+# Sinh ra từ contracts/ — không sửa tay, không commit nếu build lại được
+**/generated/
+
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+**/ios/Pods/
+**/ios/.symlinks/
+**/android/local.properties
+
+# Java / Gradle
+backend/build/
+backend/.gradle/
+*.class
+
+# Node
+node_modules/
+.next/
+out/
+.turbo/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Test
+**/failures/
+coverage/
