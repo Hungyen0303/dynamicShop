@@ -9,6 +9,10 @@ commit + push. Việc còn lại chỉ là con người: tự tay đi lại đ�
 `INIT.md`) — đó là việc của chủ dự án, không phải việc agent làm thay được. Kỹ thuật thì mọi
 mảnh đã có bằng chứng (test tự động + verify tay trên máy thật + query DB thật), xem mục 2.
 
+Đã hỏi agent `pm` "làm gì tiếp theo" — xác nhận: không có việc kỹ thuật nào cần làm ngay, đúng
+nguyên tắc "local trước, mọi thứ khác sau". Chờ chủ dự án tự đi lại flow rồi mới bàn Stage 1.
+Nhân dịp đó, chủ dự án chốt 2 thay đổi quy trình cho việc SAU NÀY — xem mục 5.
+
 ---
 
 ## 0. Đọc gì trước khi làm tiếp
@@ -20,16 +24,19 @@ Theo `AGENTS.md` mục 0: task đụng customer_app → đọc `docs/00-context.
 
 ## 1. Backend Stage 0 — ĐÃ XONG, đã commit, đã push
 
-Git log hiện tại (`main`, tất cả đã push lên GitHub):
+Git log hiện tại (`main`, tất cả đã push lên GitHub, mới nhất trên cùng):
 
 ```
-<hash mới nhất> be: sửa GUC tenant dùng doBegin() thay AOP pointcut — repository gọi trực
-                    tiếp không qua service từng bị mất bảo vệ RLS
-0357c45          be: hoàn thành backend Stage 0 — tenant isolation, auth, storefront, order,
-                    idempotency, outbox
-8cd1637          ct: thêm contracts/storefront.schema.json
-bed7b8f          be: khởi tạo Gradle project (Spring Boot 4.1.1, Java 21)
-1c23c54          chore: khởi tạo skeleton dự án
+603b3e8  doc: cập nhật progress.md — Stage 0 kỹ thuật đã xong (backend + customer_app)
+cb58976  mo: dựng customer_app Stage 0 — SDUI, 3 tầng fallback, giỏ hàng/checkout hardcode
+f1e224a  doc: cập nhật progress.md — backend Stage 0 xong, tiếp theo là customer_app
+3d48279  be: sửa GUC tenant dùng doBegin() thay AOP pointcut — repository gọi trực tiếp
+         không qua service từng bị mất bảo vệ RLS
+0357c45  be: hoàn thành backend Stage 0 — tenant isolation, auth, storefront, order,
+         idempotency, outbox
+8cd1637  ct: thêm contracts/storefront.schema.json
+bed7b8f  be: khởi tạo Gradle project (Spring Boot 4.1.1, Java 21)
+1c23c54  chore: khởi tạo skeleton dự án
 ```
 
 ### Hai bug thật đã tìm ra và sửa trong lúc review — đáng đọc nếu đụng lại `common/tenant/`
@@ -168,3 +175,25 @@ lại với nhau), và **giải thích được toàn bộ flow cho người kh�
 - Không làm gì thuộc Stage 1+ (FCM thật, VPS, CI/CD, merchant_app, admin web, Zalo).
 - Không `git push --force`, không amend commit đã có.
 - Không tắt/`@Disabled` test để né lỗi — thấy đỏ thì sửa nguyên nhân.
+
+---
+
+## 5. 🔴 Hai thay đổi quy trình chủ dự án chốt ngày 2026-08-22 — áp dụng cho việc SAU NÀY
+
+Chốt sau khi tham vấn agent `pm` về việc tiếp theo. **Không áp dụng ngược lại cho Stage 0 đã
+xong** — chỉ áp dụng từ task backend/FE/mobile TIẾP THEO trở đi (thực tế sẽ rơi vào Stage 1).
+Đã lưu chi tiết vào memory (`feedback_api_contract_docs`, `feedback_hold_fe_mo_testing`) — đọc
+ở đó nếu cần lý do đầy đủ, đây chỉ tóm tắt để agent làm việc trong repo cũng thấy được.
+
+1. **Backend phải xuất tài liệu endpoint, để FE/mobile không phải đọc source backend.** Từ
+   task backend tiếp theo trở đi: kèm một file markdown tay (không phải `contracts/openapi.yaml`,
+   không dựng generator — đúng tinh thần `contracts/README.md` hiện tại, chỉ cấm dựng toolchain
+   generator sớm chứ không cấm ghi chú tay) liệt kê mỗi endpoint: method, path, request/response
+   shape, header, status code. Khi giao việc FE/mobile sau đó, trỏ vào file này thay vì bảo agent
+   tự đọc `.java` để suy ra shape (cách đã làm khi giao `customer_app` — sẽ không lặp lại nữa).
+2. **Không để FE/mobile (agent) tự chạy test hay tự verify trên thiết bị nữa.** Từ giờ, việc
+   `flutter test`, mở emulator/máy thật, click tay qua app để xác nhận — chủ dự án tự làm.
+   Khi giao việc FE/mobile: chỉ dựng code, không đưa "chạy test/verify trên máy" vào phạm vi
+   giao việc, và nói rõ trong báo cáo phần nào cần chủ dự án tự kiểm tra. Phạm vi này CHỈ áp
+   cho FE/mobile — backend vẫn giữ nguyên bar test tự động (Testcontainers, `./gradlew test`)
+   theo `AGENTS.md`/`docs/50-qa.md`, trừ khi chủ dự án nói rõ mở rộng sang cả backend.
