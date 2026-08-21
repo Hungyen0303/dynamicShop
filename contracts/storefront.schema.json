@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dynamicshop.vn/contracts/storefront.schema.json",
+  "$comment": "Nguồn sự thật cho cấu trúc JSON storefront (SDUI mức 2). Dùng để: (1) BE validate trước khi lưu storefronts.layout/theme, (2) FE tham chiếu shape khi parse. Xem docs/10-customer-app.md mục 'SDUI — mức 2'. Danh sách block/props hợp lệ nằm ở blocks.registry.json — file này chỉ mô tả HÌNH DẠNG chung, không lặp lại whitelist props từng block.",
+  "title": "Storefront",
+  "type": "object",
+  "required": ["schema_version", "theme", "screens"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 3,
+      "description": "Version của cấu trúc layout. Tăng khi đổi shape không tương thích ngược."
+    },
+    "theme": {
+      "type": "object",
+      "description": "Theme tokens đã resolve cho tenant. Mọi field PHẢI có default ở contracts/tokens.json — client parse khoan dung, thiếu field vẫn phải chạy.",
+      "additionalProperties": true,
+      "properties": {
+        "primary": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "default": "#E23744"
+        },
+        "surface": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "default": "#FFFFFF"
+        },
+        "radius_md": {
+          "type": "number",
+          "minimum": 0,
+          "default": 12
+        },
+        "font_family": {
+          "type": "string",
+          "default": "Be Vietnam Pro"
+        }
+      }
+    },
+    "screens": {
+      "type": "object",
+      "description": "Mỗi key là tên màn hình. Stage 0 chỉ dùng 'home'.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/screen"
+      },
+      "properties": {
+        "home": { "$ref": "#/$defs/screen" }
+      },
+      "required": ["home"]
+    }
+  },
+  "$defs": {
+    "screen": {
+      "type": "object",
+      "required": ["blocks"],
+      "additionalProperties": false,
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "description": "Danh sách block PHẲNG — không lồng nhau, không Row/Column trong JSON.",
+          "items": { "$ref": "#/$defs/block" }
+        }
+      }
+    },
+    "block": {
+      "type": "object",
+      "required": ["id", "type", "v", "props"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ID duy nhất trong một screen, dùng làm React/Flutter key."
+        },
+        "type": {
+          "type": "string",
+          "description": "Phải khớp một key trong contracts/blocks.registry.json#/blocks. Type lạ không được crash client — render SizedBox.shrink() + telemetry."
+        },
+        "v": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Version của block type (khớp registry). Tăng khi đổi/xoá prop không tương thích ngược."
+        },
+        "props": {
+          "type": "object",
+          "description": "Whitelist props riêng của từng block type — xem blocks.registry.json. Mọi prop phải có default phía registry, config cũ thiếu field mới vẫn parse được.",
+          "additionalProperties": true
+        },
+        "data_ref": {
+          "type": ["string", "boolean"],
+          "default": false,
+          "description": "Khoá vào StorefrontResponse.data (ví dụ 'products:cat_do_uong', 'categories'). false nếu block không cần data ngoài (hero_banner, spacer…)."
+        },
+        "overrides": {
+          "type": "object",
+          "description": "Style override do merchant chỉnh qua merchant app — chỉ những key có trong whitelist 'overridable' của block đó trong registry.",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
