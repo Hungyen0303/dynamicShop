@@ -3,8 +3,11 @@
 > File này để agent/session sau đọc và tiếp tục ngay, không cần dò lại từ đầu.
 > Xoá file này khi Stage 0 hoàn tất và đã giải thích được toàn bộ flow (theo `INIT.md`).
 
-**Cập nhật lần cuối:** backend Stage 0 đã xong thật (24/24 test xanh, đã curl-test qua HTTP
-thật, đã commit + push). Việc tiếp theo là `customer_app` — xem mục 2.
+**Cập nhật lần cuối:** cả backend và customer_app Stage 0 đều đã xong thật, đã review, đã
+commit + push. Việc còn lại chỉ là con người: tự tay đi lại đủ 8 bước bar hoàn thành trong
+`docs/70-stages.md` một lượt và giải thích được flow cho người khác nghe (mục cuối của
+`INIT.md`) — đó là việc của chủ dự án, không phải việc agent làm thay được. Kỹ thuật thì mọi
+mảnh đã có bằng chứng (test tự động + verify tay trên máy thật + query DB thật), xem mục 2.
 
 ---
 
@@ -94,28 +97,39 @@ Javadoc giải thích đầy đủ lý do.
 
 ---
 
-## 2. 🟡 Việc tiếp theo — customer_app (Stage 0, chưa bắt đầu)
+## 2. customer_app — ĐÃ XONG, đã commit, đã push
 
-Theo thứ tự trong `INIT.md`: sau backend là `customer_app`. Chưa có gì được làm ở đây.
+Commit `cb58976 mo: dựng customer_app Stage 0 — SDUI, 3 tầng fallback, giỏ hàng/checkout
+hardcode` — đã review (không chỉ tin báo cáo): đọc lại `StorefrontRenderer`/`BlockRegistry`
+(hai chốt chặn forward-compat + error-boundary đúng nguyên văn docs), `StyleResolver` (đúng
+chuỗi `blockOverride ?? variantPreset ?? tenantTheme ?? appDefault`), `OrderRepository` (giữ
+nguyên `Idempotency-Key` qua `KvStore` khi retry, chỉ xoá key sau khi đơn tạo thành công). Tự
+chạy lại `flutter test` ở cả 6 nơi (`ds_core`, `ds_tokens`, `ds_sdui`, `ds_api`, `ds_blocks`,
+`customer_app`) — **35/35 xanh**, không phải số báo cáo suông.
 
-Đề xuất: giao cho subagent `mobile-engineer`. Đọc trước `docs/10-customer-app.md`,
-`apps/customer_app/INIT.md`, `docs/flavors.md` (nếu có). Việc cần làm theo `INIT.md` mục 5:
-- `flutter create` với 3 flavor môi trường (dev/staging/prod), CHƯA melos (dùng `path:` deps)
-- Trỏ về `http://10.0.2.2:8080` (emulator Android nhìn localhost máy host)
-- Màn hình dev đổi giữa mock shop A (`bun-co-ba`) / B (`tra-sua-ngoc`) — cần cho bước 3 của bar
-  hoàn thành (`docs/70-stages.md`)
-- `assets/default_storefront.json` — fallback tầng 3 (xem "Fallback ba tầng" trong
-  `docs/10-customer-app.md`)
-- SDUI mức 2, dùng `ds_blocks`/`ds_sdui`/`ds_tokens` (packages/ hiện chỉ có `.gitkeep`, cần dựng
-  cùng lúc)
+Đã dựng: 6 package (`ds_core`, `ds_tokens`, `ds_components`, `ds_blocks`, `ds_sdui`, `ds_api`)
++ `apps/customer_app` với 3 flavor môi trường, màn dev đổi shop A/B, fallback 3 tầng (server →
+cache đĩa theo slug → `assets/default_storefront.json`), giỏ hàng/checkout/theo dõi đơn hardcode
+(không SDUI), 8 block SDUI đủ theo registry.
 
-Khi giao việc cho subagent, viết prompt CHI TIẾT, TỰ CHỨA như đã làm với `backend-engineer`
-(xem lịch sử hội thoại phiên trước nếu còn, hoặc tự đọc lại các doc trên rồi viết mới) — agent
-mới không có ký ức phiên này.
+Đã verify TAY trên máy Android thật (Samsung SM-A256E, qua `adb reverse tcp:8080 tcp:8080`):
+mở app thấy đúng theme đỏ shop A, đổi sang shop B thấy theme xanh khác hẳn, đặt đơn thật — query
+`docker exec ds-postgres psql` xác nhận `orders` có dòng đúng tenant, `order_events` có PENDING
+cùng transaction, tắt backend thì app rơi xuống bundled asset chứ không trắng màn hình.
 
-Sau khi customer_app xong: nạp `V900__mock_tenant_a.sql`/`V901__mock_tenant_b.sql` (đã có sẵn
-trong `backend/src/main/resources/db/migration-local/`) và chạy đủ 8 bước bar hoàn thành trong
-`docs/70-stages.md` bằng tay để xác nhận Stage 0 THẬT SỰ xong.
+### Còn một mục chưa tự verify qua UI thật (biết trước, chấp nhận được)
+Gửi lại đúng `Idempotency-Key` qua UI thật (double-tap "Đặt hàng") — nút bị disable lúc đang
+gửi nên không mô phỏng tay được. Đã xác nhận đúng bằng đọc code (`OrderRepository.submit`) +
+test phía backend (`IdempotencyOrderTest`, đã xanh). Nếu muốn chắc chắn 100%, có thể viết một
+integration test gọi `apiClient.createOrder` hai lần liên tiếp cùng key giả lập — chưa làm, để
+tuỳ chọn cho ai cần.
+
+### Bước tiếp theo — chỉ còn việc của con người
+Kỹ thuật Stage 0 (backend + customer_app) đã xong và có bằng chứng. Việc còn lại theo
+`INIT.md` mục "✅ Stage 0 xong khi": tự tay đi lại đủ 8 bước bar hoàn thành trong
+`docs/70-stages.md` một lượt liền mạch (mở app thật, không phải ghép nhiều lần test riêng lẻ
+lại với nhau), và **giải thích được toàn bộ flow cho người khác nghe** — đây là việc của chủ dự
+án, đánh dấu xong thì mới sang Stage 1.
 
 ---
 
@@ -136,6 +150,16 @@ trong `backend/src/main/resources/db/migration-local/`) và chạy đủ 8 bư�
 7. GUC tenant set qua `TenantAwareJpaTransactionManager.doBegin()` thay vì AOP pointcut hoặc
    `org.hibernate.Interceptor` thô — người dùng đã duyệt hướng "sửa tận gốc" qua
    `AskUserQuestion`.
+8. Flutter **3.43.0 kênh BETA** (không FVM, không bản stable riêng) — người dùng đã duyệt qua
+   `AskUserQuestion`.
+9. Test customer_app trên **máy Android thật** (Samsung SM-A256E) thay vì emulator — người dùng
+   đã duyệt qua `AskUserQuestion`. Kết nối qua `adb reverse tcp:8080 tcp:8080` (không phải
+   `10.0.2.2` — địa chỉ đó chỉ dùng được cho emulator).
+10. Cache storefront tầng 2 key theo `slug` thay vì `tenant_id` (khách chưa đăng nhập, không có
+    UUID tenant ở phía client) — chấp nhận, hợp lý cho Stage 0.
+11. Font: bundle thật Be Vietnam Pro + Inter, font khác trong `allowed_fonts` tải qua
+    `google_fonts` (đã pre-duyệt dependency này khi giao việc) với fallback nuốt lỗi mạng —
+    chấp nhận.
 
 ## 4. KHÔNG được tự ý làm (nhắc lại từ AGENTS.md, phòng agent sau quên)
 - Không thêm dependency ngoài: web/webmvc, data-jpa, security, validation, postgresql, flyway,
