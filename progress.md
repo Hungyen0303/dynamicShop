@@ -1,17 +1,20 @@
-# progress.md — Stage 0, tình trạng bàn giao
+# progress.md — Stage 0 ĐÃ ĐÓNG
 
 > File này để agent/session sau đọc và tiếp tục ngay, không cần dò lại từ đầu.
-> Xoá file này khi Stage 0 hoàn tất và đã giải thích được toàn bộ flow (theo `INIT.md`).
+> Giữ lại làm hồ sơ build Stage 0 — xoá khi nào chủ dự án thấy không cần tra lại nữa.
 
-**Cập nhật lần cuối:** cả backend và customer_app Stage 0 đều đã xong thật, đã review, đã
-commit + push. Việc còn lại chỉ là con người: tự tay đi lại đủ 8 bước bar hoàn thành trong
-`docs/70-stages.md` một lượt và giải thích được flow cho người khác nghe (mục cuối của
-`INIT.md`) — đó là việc của chủ dự án, không phải việc agent làm thay được. Kỹ thuật thì mọi
-mảnh đã có bằng chứng (test tự động + verify tay trên máy thật + query DB thật), xem mục 2.
+**Cập nhật lần cuối (2026-08-22):** Chủ dự án đã tự tay đi lại flow và xác nhận **OK** — điều
+kiện cuối cùng của Stage 0 (`docs/70-stages.md` + `INIT.md` mục "✅ Stage 0 xong khi") đã đạt.
+**Stage 0 coi như đóng.** Cả backend và customer_app đã xong thật, đã review, đã commit + push
+(xem mục 1, 2 để tra chi tiết kỹ thuật nếu cần).
 
-Đã hỏi agent `pm` "làm gì tiếp theo" — xác nhận: không có việc kỹ thuật nào cần làm ngay, đúng
-nguyên tắc "local trước, mọi thứ khác sau". Chờ chủ dự án tự đi lại flow rồi mới bàn Stage 1.
-Nhân dịp đó, chủ dự án chốt 2 thay đổi quy trình cho việc SAU NÀY — xem mục 5.
+Đã hỏi agent `pm` "làm gì tiếp theo" trước khi đóng Stage 0 — xác nhận không có việc kỹ thuật
+nào bị bỏ sót, đúng nguyên tắc "local trước, mọi thứ khác sau". Nhân dịp đó, chủ dự án chốt 2
+thay đổi quy trình cho việc SAU NÀY — xem mục 5.
+
+**Bước tiếp theo:** phạm vi Stage 1 (VPS, Firebase/FCM, R2 ảnh...) CHƯA được bàn hay quyết —
+theo đúng luật ở `AGENTS.md`/`docs/70-stages.md`, agent không tự nhảy stage. Hỏi chủ dự án
+trước khi bắt đầu bất cứ việc gì thuộc Stage 1, kể cả để lên kế hoạch.
 
 ---
 
@@ -131,12 +134,9 @@ test phía backend (`IdempotencyOrderTest`, đã xanh). Nếu muốn chắc ch�
 integration test gọi `apiClient.createOrder` hai lần liên tiếp cùng key giả lập — chưa làm, để
 tuỳ chọn cho ai cần.
 
-### Bước tiếp theo — chỉ còn việc của con người
-Kỹ thuật Stage 0 (backend + customer_app) đã xong và có bằng chứng. Việc còn lại theo
-`INIT.md` mục "✅ Stage 0 xong khi": tự tay đi lại đủ 8 bước bar hoàn thành trong
-`docs/70-stages.md` một lượt liền mạch (mở app thật, không phải ghép nhiều lần test riêng lẻ
-lại với nhau), và **giải thích được toàn bộ flow cho người khác nghe** — đây là việc của chủ dự
-án, đánh dấu xong thì mới sang Stage 1.
+### Bước tiếp theo — ĐÃ XONG
+Chủ dự án đã tự tay đi lại đủ 8 bước bar hoàn thành trong `docs/70-stages.md` và xác nhận OK
+(2026-08-22). Stage 0 đóng — xem đầu file.
 
 ---
 
