@@ -1,15 +1,11 @@
 package vn.dynamicshop;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 
-@Import(TestcontainersConfiguration.class)
-@SpringBootTest
-class BackendApplicationTests {
+class BackendApplicationTests extends AbstractIntegrationTest {
 
-	@Test
-	void contextLoads() {
-	}
+    @Test
+    void contextLoads() {
+    }
 
 }
