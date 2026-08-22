@@ -28,6 +28,9 @@ app:
     # LẠI và chuyển sang secret store thật trước khi có Stage 1 (VPS thật).
     secret: "dev-only-jwt-secret-DO-NOT-USE-IN-PROD-32bytes+"
     expiration-minutes: 720
+  # Stage 1 — object storage cho ảnh (R2/MinIO). Mặc định "local" = hành vi Stage 0 y hệt cũ.
+  storage:
+    mode: local
 
 ---
 # Profile local — nạp thêm mock data 2 shop (V900/V901), CHỈ ở local.
