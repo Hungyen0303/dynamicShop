@@ -5,6 +5,23 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Stage 1 — Firebase Crashlytics (docs/70-stages.md). CHƯA có `google-services.json` thật cho
+// flavor nào (dev/staging/prod) — xem missing_config.md mục 6. Hai plugin dưới đây BẮT BUỘC có
+// google-services.json mới apply được (không thì Gradle fail build ngay ở bước config), nên chỉ
+// apply khi thấy file thật — thiếu file thì build chạy y hệt trước khi thêm Firebase, không vỡ
+// gì. `google-services` plugin cũng tự tìm file theo flavor (`src/<flavor>/google-services.json`)
+// nên chỉ cần check có ÍT NHẤT một file ở gốc app/ hoặc trong bất kỳ thư mục flavor nào.
+val hasGoogleServicesConfig =
+    file("google-services.json").exists() ||
+        file("src/dev/google-services.json").exists() ||
+        file("src/staging/google-services.json").exists() ||
+        file("src/prod/google-services.json").exists()
+
+if (hasGoogleServicesConfig) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
 android {
     namespace = "vn.dynamicshop.customer_app"
     compileSdk = flutter.compileSdkVersion
