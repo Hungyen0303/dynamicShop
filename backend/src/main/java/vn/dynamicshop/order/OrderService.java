@@ -58,6 +58,24 @@ public class OrderService {
         return OrderResponseDto.from(order);
     }
 
+    /**
+     * Chi tiết một đơn, KÈM dòng món — thứ mà {@code /sync} cố ý không trả để tiết kiệm
+     * băng thông. Chủ quán không nấu được món nếu màn hình chỉ hiện "3 món", nên đây là
+     * đường bắt buộc phải có trước khi merchant_app dựng màn chi tiết (sprint 2.2).
+     *
+     * Đơn của tenant khác ra {@code 404} chứ không phải {@code 403} — Hibernate
+     * {@code @TenantId} lọc trước, RLS chặn lần cuối, nên với người gọi thì nó đơn giản là
+     * không tồn tại. Không xác nhận cho ai biết một orderId có tồn tại ở đâu đó hay không.
+     */
+    @Transactional(readOnly = true)
+    public OrderResponseDto getOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new OrderNotFoundException(orderId));
+        // Chạm items TRONG transaction — chúng LAZY, đọc ngoài transaction sẽ nổ
+        // LazyInitializationException. OrderResponseDto.from() duyệt items ngay nên an toàn,
+        // nhưng ghi lại vì đây là chỗ dễ hỏng nếu ai đó đổi DTO sau này.
+        return OrderResponseDto.from(order);
+    }
+
     @Transactional
     public OrderResponseDto transitionStatus(UUID orderId, OrderStatus to, OrderEvent.ActorType actorType,
             UUID actorId, String reason) {

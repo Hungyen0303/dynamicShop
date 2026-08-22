@@ -1,7 +1,7 @@
 # missing_config.md — Cấu hình thật còn thiếu cho Stage 1
 
-> Mọi thứ dưới đây đã có **fallback an toàn**: không điền gì thì app chạy y hệt Stage 0 (đã verify
-> `./gradlew clean test` 29/29 xanh + chạy thật `docker compose ... up` local). Danh sách này là
+> Mọi thứ dưới đây đã có **fallback an toàn**: không điền gì thì app vẫn chạy đầy đủ ở local (đã
+> verify `./gradlew clean test` **64/64 xanh** sau sprint 2.1b + chạy thật `docker compose ... up`). Danh sách này là
 > việc **chủ dự án tự làm sau** khi có tài khoản/thiết bị thật. Xem `progress.md` mục 6, 8 để biết
 > bối cảnh phê duyệt Stage 1 và kết luận PM, `aware.md` để biết quyết định kỹ thuật nào cần tự
 > check lại.
@@ -59,6 +59,16 @@ khi mục 3 + mục 6 phía trên được điền:
   **polling-only** (vẫn gỡ được phần lớn rủi ro OEM).
 - **Đo latency `orders/sync` qua 4G / server thật** — cần mục 1 (VPS + domain).
 - **Crashlytics cho merchant_app** — dùng lại đúng khuôn guard đã chứng minh ở customer_app.
+- 🔴 **Backend truy cập được từ điện thoại** — chặn bài test "chạy nền 8 tiếng". `adb reverse`
+  KHÔNG dùng được vì nó chết khi rút cáp, mà bài test này bắt buộc rút cáp (máy phải chạy pin để
+  Android vào Doze; cắm sạc thì test xanh giả). Hai lựa chọn:
+  1. **Laptop + Wi-Fi LAN** (làm được ngay, không tốn tiền): backend chạy trên laptop, flavor dev
+     của merchant_app trỏ `http://192.168.x.x:8080`, cho phép cleartext ở flavor dev, mở firewall
+     Windows cổng 8080, và **tắt sleep của laptop suốt 8 tiếng**.
+  2. **Lấy VPS ở mục 1** — sạch hơn hẳn và mở khoá luôn phép đo qua 4G thật.
+- **Một cách bắn đơn lúc 3 giờ sáng mà không đụng vào máy** — script `curl POST
+  /v1/s/{slug}/orders` kèm `Idempotency-Key` khác nhau, hẹn giờ 30 phút/lần bằng Task Scheduler.
+  Không có nó thì bài test chỉ chứng minh "app còn sống", không chứng minh "chuông còn kêu".
 
 **→ Hệ quả: Stage 2 KHÔNG đóng được** cho tới khi có FCM thật (bar hoàn thành trong
 `docs/70-stages.md` là "chạy nền 8 tiếng trên Xiaomi/Oppo thật, gửi đơn lúc 3 giờ sáng, chuông vẫn
@@ -106,18 +116,21 @@ JSON). Đặt file đó **ngoài git** (pattern `**/service-account*.json` đã 
 từ trước), mount vào container qua volume trong `docker-compose.prod.yml`, set
 `APP_FIREBASE_ENABLED=true` và `APP_FIREBASE_SERVICE_ACCOUNT_PATH=/path/trong/container.json`.
 
-⚠️ **Lưu ý quan trọng**: kể cả bật Firebase thật, outbox worker hiện **chưa gửi được push nào**
-vì chưa có bảng đăng ký device token của merchant (tính năng đó thuộc `merchant_app`, Stage 2).
-`FirebaseFcmSender` đã sẵn sàng, chỉ chờ Stage 2 nối `deviceToken` thật vào lời gọi
-`fcmSender.send(...)` ở `OutboxBatchProcessor`. Không phải bug — cấu trúc đã đúng, chỉ chưa có
-consumer.
+⚠️ **Cập nhật sau sprint 2.1** — phần thiếu đã thu hẹp lại: bảng `device_tokens` + route đăng ký
+(`POST/DELETE /v1/merchant/devices`) **đã có**, và `OutboxBatchProcessor` **đã fan-out** tới mọi máy
+còn sống của đúng tenant (có test chống rò rỉ chéo tenant). Nghĩa là toàn bộ đường ống "đơn mới →
+outbox → worker → resolve token đúng tenant → gọi sender" đã chạy thật.
 
-**→ Khi có file service-account:** set `APP_FIREBASE_ENABLED=true` +
+Thứ duy nhất còn thiếu là **chính file service-account này** — thiếu nó thì `FcmSender` vẫn là
+`LogOnlyFcmSender`, đường ống chạy đủ nhưng dừng ở dòng log thay vì gọi Google. Điền file vào là
+push thật chạy, không phải viết thêm code backend nào.
+
+**→ Khi có file service-account:** (đây giờ là mục có giá trị cao nhất trong cả file — nó mở khoá
+push thật cho merchant_app) set `APP_FIREBASE_ENABLED=true` +
 `APP_FIREBASE_SERVICE_ACCOUNT_PATH=...` trong `.env.prod`, mount file vào container qua volume
 trong `docker-compose.prod.yml` (agent thêm dòng volume), redeploy, kiểm tra log KHÔNG còn dòng
 `[fcm] ... LogOnlyFcmSender` mà thấy `[fcm] Firebase khởi tạo thành công`. Đây là điều kiện #3
-trong "Tiêu chí đóng Stage 1". **Đừng tự dựng bảng device token/route đăng ký FCM token** — đó là
-việc của `merchant_app`, Stage 2, chưa bàn.
+trong "Tiêu chí đóng Stage 1". ~~**Đừng tự dựng bảng device token/route đăng ký FCM token**~~ — đã làm xong ở sprint 2.1.
 
 ## 4. R2 (Cloudflare) — object storage ảnh, phía backend
 

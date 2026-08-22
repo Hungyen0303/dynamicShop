@@ -1,11 +1,17 @@
 # INIT — merchant_app
 
-> 🔴 **STAGE 2 — CHƯA LÀM.**
+> 🟢 **STAGE 2 — ĐANG LÀM, phạm vi bị cắt.** (cập nhật 2026-08-22, sprint 2.1b)
 >
-> Bắt đầu sau khi Stage 1 xong (VPS + Firebase + FCM chạy ổn định).
-> Xem `../../docs/70-stages.md`.
+> Câu gốc "chưa làm, bắt đầu sau khi Stage 1 xong, dừng lại và xác nhận với người trước"
+> **đã được chủ dự án override**: đi tiếp Stage 2 trong khi Stage 1 để treo chờ
+> VPS/domain/Firebase/R2 thật.
 >
-> **Nếu được giao task dựng app này, dừng lại và xác nhận với người trước.**
+> **Đọc `../../progress.md` mục 9 trước khi làm bất cứ gì** — ở đó có phạm vi sprint đã cắt,
+> ranh giới cái gì làm được không cần credential, và **hai luật kiến trúc bắt buộc**
+> (`IncomingOrderSink` duy nhất, `PushTokenProvider` là interface).
+> API để gọi: `../../docs/90-api-contract.md` — **đọc file đó, không đọc `.java` của backend.**
+>
+> Không cần hỏi lại có được làm không. Nhưng đừng tự mở rộng ra ngoài sprint đã cắt.
 
 ---
 
@@ -29,9 +35,18 @@ flutter create --org vn.dynamicshop --platforms=android merchant_app
 - Platform channel: foreground service, máy in, battery/autostart (**tối đa 4**)
 
 ## Xong khi
+
+⚠️ Bar này là của **cả Stage 2**, không phải của sprint 2.2. Hai mục đã đổi so với bản gốc:
+in bill nhiệt thuộc **Stage 5** (`../../docs/70-stages.md`), không phải điều kiện đóng Stage 2;
+và "chuông vẫn kêu" hiện chạy được bằng **polling-only** vì chưa có FCM thật (sprint 2.5).
+
 - [ ] Build được APK debug
-- [ ] **Chạy nền 8 tiếng trên máy thật, chuông vẫn kêu**
+- [ ] **Chạy nền 8 tiếng trên máy Xiaomi/Oppo thật, chuông vẫn kêu** ← chạy sớm bằng polling-only,
+      đừng đợi có FCM; bài test này tốn *thời gian đồng hồ* chứ không tốn công
 - [ ] Khởi động lại máy → tự chạy lại
 - [ ] Tắt mạng giữa lúc xác nhận đơn → vào queue, tự gửi lại
-- [ ] In bill đúng dấu tiếng Việt trên máy in thật
-- [ ] Push trùng 2 lần → một bản ghi đơn
+- [ ] Nhận cùng một đơn 2 lần (poll lặp hoặc push trùng) → **một** bản ghi đơn, chuông kêu **một** lần
+- [ ] Token hết hạn giữa lúc app đang chạy nền → tự đăng nhập lại, **không sót đơn nào**
+      (ép bằng `app.jwt.expiration-minutes: 2` ở local — TTL thật là 30 ngày nên đường này
+      sẽ không bao giờ tự lộ ra khi test tay)
+- [ ] ~~In bill đúng dấu tiếng Việt trên máy in thật~~ → **Stage 5**, không phải điều kiện Stage 2

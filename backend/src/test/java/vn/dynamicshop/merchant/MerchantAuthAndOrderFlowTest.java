@@ -126,11 +126,11 @@ class MerchantAuthAndOrderFlowTest extends AbstractIntegrationTest {
 
     @Test
     void goi_endpoint_merchant_khong_co_token_bi_tu_choi() throws Exception {
-        // Không cấu hình AuthenticationEntryPoint riêng → Spring Security mặc định trả 403
-        // (Http403ForbiddenEntryPoint) cho request thiếu Authentication, không phải 401.
+        // Sprint 2.1b: đã thay Http403ForbiddenEntryPoint mặc định của Spring bằng
+        // JsonAuthenticationEntryPoint → 401 kèm body JSON, không còn 403.
         mockMvc.perform(post("/v1/merchant/orders/{id}/transition", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"to\":\"CONFIRMED\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 }

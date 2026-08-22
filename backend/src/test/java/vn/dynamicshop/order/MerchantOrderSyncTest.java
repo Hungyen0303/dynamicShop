@@ -107,8 +107,8 @@ class MerchantOrderSyncTest extends AbstractIntegrationTest {
 
         Map<String, Object> body = readMap(result.getResponse().getContentAsString());
         assertThat(ordersOf(body)).hasSize(3);
-        assertThat(body).containsKeys("server_time", "has_more");
-        assertThat(body.get("has_more")).isEqualTo(false);
+        assertThat(body).containsKeys("serverTime", "hasMore");
+        assertThat(body.get("hasMore")).isEqualTo(false);
 
         // Shape đúng như docs/90-api-contract.md — không có "items" trong bản tóm tắt.
         Map<String, Object> first = ordersOf(body).get(0);
@@ -153,6 +153,59 @@ class MerchantOrderSyncTest extends AbstractIntegrationTest {
                 .getResponse().getContentAsString());
         assertThat(ordersOf(delta)).hasSize(3);
         assertThat(ordersOf(delta)).allMatch(o -> String.valueOf(o.get("code")).startsWith("SYNC-NEW"));
+    }
+
+    /**
+     * 🔴 Sprint 2.1b — chốt chặn cho lỗi MẤT ĐƠN IM LẶNG lọt qua sprint 2.1.
+     *
+     * Bản cũ trả {@code Instant.now()} lấy SAU khi query xong. Đơn được
+     * {@code @UpdateTimestamp} gán {@code updated_at = T1} nhưng commit ở T3; poll ở T2
+     * (T1 &lt; T2 &lt; T3) không thấy đơn đó nhưng vẫn trả về mốc T2, và lần poll sau lọc
+     * {@code >= T2} sẽ bỏ qua nó vĩnh viễn.
+     *
+     * Không mô phỏng được bằng đồng thời thật ở đây ({@code maximum-pool-size=1} trong
+     * AbstractIntegrationTest sẽ deadlock nếu giữ một transaction mở rồi query từ connection
+     * khác), nên kiểm thẳng BẤT BIẾN: mốc trả về phải nằm hẳn trong quá khứ so với thời
+     * điểm gọi. Bản cũ đỏ ngay ở dòng này.
+     */
+    @Test
+    void server_time_luon_lui_ve_qua_khu_du_xa_de_khong_bo_sot_don() throws Exception {
+        Shop shop = createShopWithLogin("0911000009");
+
+        Instant truocKhiGoi = Instant.now();
+        Map<String, Object> body = readMap(sync(shop.token(), "").getResponse().getContentAsString());
+        Instant serverTime = Instant.parse(String.valueOf(body.get("serverTime")));
+
+        // Biên an toàn thật là 60s; kiểm 30s để test không mong manh nếu sau này siết lại,
+        // nhưng vẫn đỏ chắc chắn với bản cũ (mốc nằm SAU thời điểm gọi).
+        assertThat(serverTime).isBefore(truocKhiGoi.minusSeconds(30));
+    }
+
+    /**
+     * Mặt hành vi của cùng bản sửa trên, viết theo đúng cách merchant_app sẽ dùng: lấy
+     * {@code serverTime} của lần poll này làm {@code since} cho lần poll sau. Đơn vừa tạo
+     * PHẢI còn nằm trong kết quả — cửa sổ chồng lấn chính là thứ che cho khe commit.
+     *
+     * Bản cũ đỏ: mốc trả về mới hơn {@code updated_at} của đơn nên nó biến mất ngay lần
+     * poll thứ hai. Client nhận lặp là chấp nhận được vì nó BẮT BUỘC dedupe theo id rồi
+     * (bất biến #4).
+     */
+    @Test
+    void don_vua_tao_van_con_o_lan_poll_sau_khi_dung_server_time_lam_since() throws Exception {
+        Shop shop = createShopWithLogin("0911000010");
+        seedOrders(shop.tenant(), 1, "SYNC-WATERMARK");
+
+        Map<String, Object> lanDau = readMap(sync(shop.token(), "").getResponse().getContentAsString());
+        assertThat(ordersOf(lanDau)).hasSize(1);
+        String since = String.valueOf(lanDau.get("serverTime"));
+
+        Map<String, Object> lanSau = readMap(sync(shop.token(), "?since=" + since)
+                .getResponse().getContentAsString());
+
+        assertThat(ordersOf(lanSau))
+                .as("đơn rơi khỏi kết quả ngay lần poll thứ hai = mất đơn vĩnh viễn ở production")
+                .hasSize(1);
+        assertThat(ordersOf(lanSau).get(0).get("code")).isEqualTo("SYNC-WATERMARK-0");
     }
 
     @Test
@@ -200,7 +253,7 @@ class MerchantOrderSyncTest extends AbstractIntegrationTest {
 
         // Trần cứng do server giữ — client không có cách nào xin nhiều hơn.
         assertThat(ordersOf(body)).hasSize(50);
-        assertThat(body.get("has_more")).isEqualTo(true);
+        assertThat(body.get("hasMore")).isEqualTo(true);
     }
 
     @Test
@@ -213,8 +266,24 @@ class MerchantOrderSyncTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void khong_co_token_thi_khong_goi_duoc() throws Exception {
-        mockMvc.perform(get("/v1/merchant/orders/sync"))
-                .andExpect(status().isForbidden());
+    void thieu_token_tra_401_khong_phai_403() throws Exception {
+        // Sprint 2.1b: trước đây Spring trả 403 mặc định. Đổi thành 401 vì quyết định #12
+        // dựng vòng đời phiên trên luật "gặp 401 thì tự đăng nhập lại" — 403 rơi ngoài luật
+        // đó và biến một lỗi rơi header thành im lặng ngừng nhận đơn.
+        MvcResult result = mockMvc.perform(get("/v1/merchant/orders/sync")).andReturn();
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(401);
+        assertThat(readMap(result.getResponse().getContentAsString()).get("code")).isEqualTo("UNAUTHENTICATED");
+    }
+
+    @Test
+    void token_hong_cung_tra_401_cung_shape() throws Exception {
+        MvcResult result = mockMvc.perform(get("/v1/merchant/orders/sync")
+                        .header("Authorization", "Bearer khong-phai-jwt"))
+                .andReturn();
+
+        // Cùng shape với trường hợp thiếu header — client chỉ cần nhớ đúng MỘT luật.
+        assertThat(result.getResponse().getStatus()).isEqualTo(401);
+        assertThat(readMap(result.getResponse().getContentAsString()).get("code")).isEqualTo("UNAUTHENTICATED");
     }
 }

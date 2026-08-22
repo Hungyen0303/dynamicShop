@@ -131,7 +131,7 @@ Worker `@Scheduled` poll `outbox where processed_at is null`, gửi, retry với
 
 ```
 GET /v1/merchant/orders/sync?since=2026-07-29T10:15:00Z
-→ { orders: [...], server_time: "…", has_more: false }
+→ { orders: [...], serverTime: "…", hasMore: false }
 ```
 
 - Trả **delta** theo `updated_at`, không trả toàn bộ
@@ -139,6 +139,20 @@ GET /v1/merchant/orders/sync?since=2026-07-29T10:15:00Z
 - ETag / `304` khi không có gì mới — phần lớn lần poll phải tốn ~200 byte
 
 Merchant app poll mỗi 15–20s khi foreground. Endpoint này bị gọi nhiều nhất hệ thống — giữ nó rẻ.
+
+🔴 **`serverTime` KHÔNG phải `now()`.** Nó phải là mốc lấy **trước** khi query, **trừ thêm một biên
+an toàn** lớn hơn transaction dài nhất. Lý do: `updated_at` được gán lúc flush nhưng transaction
+commit sau đó, nên có cửa sổ mà một đơn đã mang mốc T1 nhưng chưa nhìn thấy được. Trả về `now()`
+(T2 > T1) khiến đơn đó rơi vào khe và **không bao giờ xuất hiện lại** ở lần poll sau. Đây là lỗi
+thật đã lọt qua sprint 2.1 và được sửa ở 2.1b — xem `OrderSyncService.WATERMARK_SAFETY_MARGIN`.
+Cái giá là client nhận lặp các đơn trong cửa sổ đó; chấp nhận được vì client bắt buộc dedupe theo
+`id` rồi (push at-least-once).
+
+⚠️ **Mọi query dẫn xuất trên repository phải có `@Transactional`.** `@Transactional` mức class của
+`SimpleJpaRepository` CHỈ phủ method kế thừa (`save`/`findById`/`findAll`), không phủ method khai
+báo trên interface của mình. Không transaction → `TenantAwareJpaTransactionManager.doBegin()` không
+chạy → GUC `app.tenant_id` không được set → mất tầng bảo vệ RLS. Đặt trên **từng method**, không
+đặt ở mức interface (mức đó sẽ biến cả `save()` thành read-only).
 
 ---
 

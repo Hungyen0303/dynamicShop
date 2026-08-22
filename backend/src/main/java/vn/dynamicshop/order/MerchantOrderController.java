@@ -63,6 +63,16 @@ public class MerchantOrderController {
         return ResponseEntity.ok().eTag(etag).body(body);
     }
 
+    /**
+     * Chi tiết một đơn kèm dòng món. {@code /sync} cố ý chỉ trả bản tóm tắt (không có
+     * {@code items}) để giữ endpoint poll rẻ — màn chi tiết của merchant_app gọi route này
+     * khi chủ quán mở một đơn cụ thể, tức là vài lần mỗi đơn chứ không phải mỗi 15 giây.
+     */
+    @GetMapping("/{id}")
+    public OrderResponseDto detail(@PathVariable UUID id) {
+        return orderService.getOrder(id);
+    }
+
     @PostMapping("/{id}/transition")
     public OrderResponseDto transition(@PathVariable UUID id, @Valid @RequestBody TransitionOrderStatusRequest request,
             Authentication authentication) {

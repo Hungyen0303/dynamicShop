@@ -108,7 +108,7 @@ gọi repository trực tiếp (test, và bất kỳ code nào sau này) mới l
 `OrderRepository`, `OrderItemRepository`. Cố ý không đặt ở mức interface — mức interface sẽ phủ cả
 `save()` kế thừa và biến mọi lệnh ghi thành read-only.
 
-## ⚠️ Cần chủ dự án quyết: policy RLS nên chịu được GUC rỗng?
+## ~~⚠️ Cần chủ dự án quyết: policy RLS nên chịu được GUC rỗng?~~ → ĐÃ CHỐT, xem phần Sprint 2.1b
 
 Phát hiện kèm theo, CHƯA sửa vì nó là thay đổi schema trên 11 bảng và đáng để chủ dự án quyết:
 
@@ -124,8 +124,8 @@ Hai hướng, cần chọn một:
 - **V3 đổi policy sang `NULLIF(current_setting('app.tenant_id', true), '')::uuid`** — thiếu tenant thì
   luôn lọc rỗng, nhất quán. Nhược điểm: lỗi quên set tenant trở nên im lặng hơn.
 
-Mình nghiêng về hướng thứ hai + giữ nguyên `@Transactional` ở trên như tuyến phòng thủ chính, nhưng
-đây là quyết định về hành vi an toàn nên không tự quyết.
+~~Mình nghiêng về hướng thứ hai~~ — **đã bị bác, và bác đúng.** Chủ dự án chốt: hoãn thi hành, và
+khi làm thì chọn hướng **"luôn nổ"**, KHÔNG dùng NULLIF. Lý do đầy đủ ở phần Sprint 2.1b cuối file.
 
 ## Bảng `device_tokens` unique THEO TENANT, không unique toàn cục
 
@@ -139,7 +139,7 @@ nếu là người có hai quán, sai nếu là máy chuyển tay. Cách dọn �
 `UNREGISTERED` của chính FCM — cần Firebase thật, sprint 2.5. Ghi nhận giới hạn thay vì giả vờ đã giải
 quyết.
 
-## `server_time` / `has_more` là snake_case, lệch với phần còn lại của API
+## ~~`server_time` / `has_more` là snake_case~~ → ĐÃ ĐỔI sang camelCase ở sprint 2.1b
 
 `docs/30-backend.md` chốt shape `{ orders, server_time, has_more }` từ trước, trong khi mọi field khác
 toàn hệ thống là camelCase (kể cả các field bên trong `orders[]`). Đã **giữ đúng văn bản** thay vì tự ý
@@ -164,3 +164,86 @@ lần hai. Nếu thấy ồn, sprint 2.2 có thể lọc ở phía client theo `
 Hệ quả trực tiếp của quyết định #12 (TTL dài, không refresh token). Chưa có bảng phiên, nên nếu một
 máy bị mất/bị lộ token, cách duy nhất là đổi `APP_JWT_SECRET` — và việc đó đá văng **toàn bộ** merchant
 của mọi tenant cùng lúc. Chấp nhận được ở quy mô hiện tại; nêu ra để không ai bất ngờ lúc cần.
+
+---
+
+# Sprint 2.1b — sửa lỗi mất đơn + dọn nợ trước khi mở Flutter (2026-08-22)
+
+Sprint này sinh ra từ việc chủ dự án yêu cầu gọi agent `pm` check lại tiến độ. PM tự đọc code và
+tìm ra một lỗi mà cả phiên làm việc lẫn `aware.md` đều bỏ sót — nêu ở đây vì nó là bằng chứng cho
+thấy việc gọi PM rà lại ở ranh giới sprint có giá trị thật, không phải thủ tục.
+
+## 🔴 Lỗi mất đơn IM LẶNG lọt qua sprint 2.1 — đã sửa, có regression test
+
+`OrderSyncService` cũ trả `Instant.now()` lấy **sau** khi query xong làm mốc `server_time`.
+`Order.updatedAt` do `@UpdateTimestamp` gán lúc **flush** nhưng transaction commit **sau đó**, nên
+có cửa sổ mà một đơn đã mang `updated_at = T1` nhưng chưa nhìn thấy được từ transaction khác. Poll
+ở T2 (T1 < T2 < T3=commit) không thấy đơn đó nhưng vẫn trả mốc T2 → lần poll sau lọc `>= T2` → **đơn
+đó không bao giờ xuất hiện lại**. Không log, không lỗi, không ai biết.
+
+Nguy hiểm gấp đôi vì `docs/90-api-contract.md` khi đó **đang dạy client lấy `since` từ
+`server_time`** — tức là cái sai nằm trong luật client, và nếu để tới sprint 2.2 thì merchant_app
+sẽ được viết đúng theo luật sai đó.
+
+**Đã sửa**: lấy mốc **trước** khi query và **trừ biên an toàn 60 giây**
+(`OrderSyncService.WATERMARK_SAFETY_MARGIN`). Cái giá là client nhận lặp các đơn trong cửa sổ 60
+giây — vô hại vì client bắt buộc dedupe theo `id` rồi (bất biến #4), và ETag vẫn cho 304 bình
+thường khi không có gì đổi.
+
+**Đã chứng minh test bắt được lỗi, không chỉ viết test rồi tin**: tạm đảo ngược bản sửa về
+`Instant.now()` và chạy lại → đúng 2 test mới đỏ
+(`server_time_luon_lui_ve_qua_khu_du_xa_de_khong_bo_sot_don`,
+`don_vua_tao_van_con_o_lan_poll_sau_khi_dung_server_time_lam_since`), 9 test còn lại vẫn xanh. Rồi
+khôi phục.
+
+Không mô phỏng được race thật bằng đồng thời trong test: `AbstractIntegrationTest` ghim
+`maximum-pool-size=1` (cố ý, để bắt lỗi rò rỉ GUC qua pool), nên giữ một transaction mở rồi query từ
+connection khác sẽ deadlock. Hai test trên kiểm **bất biến** thay vì kiểm race — đủ chặt và không
+mong manh.
+
+## 403 → 401 cho mọi request thiếu/sai xác thực
+
+Spring mặc định trả **403** khi thiếu `Authorization` (`Http403ForbiddenEntryPoint`). Sai về HTTP,
+và ở dự án này là lỗi mất đơn: quyết định #12 dựng cả vòng đời phiên trên luật "gặp 401 thì tự đăng
+nhập lại", nên một lỗi rơi header ở client (dễ xảy ra khi foreground service khởi động lại lúc 3
+giờ sáng) sẽ nhận 403, không nằm trong luật, và **im lặng ngừng nhận đơn**.
+
+Đã thêm `JsonAuthenticationEntryPoint` → mọi trường hợp đều ra `401` với body
+`{"code":"UNAUTHENTICATED"}`, cùng shape lỗi với phần còn lại của API. `JwtAuthenticationFilter`
+cũng đổi từ `response.sendError()` (trang HTML của container) sang cùng JSON đó.
+
+**Đây là thay đổi hành vi API.** Không có client nào đang phụ thuộc (merchant_app chưa viết,
+customer_app chỉ dùng public plane), nhưng ghi lại để không ai bất ngờ. Ba test cũ khẳng định 403
+đã sửa theo.
+
+## `server_time`/`has_more` → `serverTime`/`hasMore`
+
+Đã đổi sang camelCase như PM khuyến nghị, sửa cả `docs/30-backend.md` và
+`docs/90-api-contract.md` trong cùng commit. Làm lúc này vì chi phí gần bằng không; sau sprint 2.2
+thì phải sửa cả client và chủ dự án phải verify tay lại.
+
+## Policy RLS khi GUC rỗng — chủ dự án đã chốt hướng, HOÃN thi hành
+
+Chủ dự án chốt qua `AskUserQuestion` (2026-08-22): **hoãn**, và khi làm thì chọn hướng **"luôn nổ"**
+(`current_setting('app.tenant_id')::uuid`, bỏ `missing_ok`) — KHÔNG dùng `NULLIF`.
+
+Ghi lại lập luận vì nó ngược với hướng mà chính mình nghiêng về lúc đầu, và PM đúng: `NULLIF` biến
+"quên set tenant" thành **danh sách đơn rỗng, im lặng**, trên đúng endpoint mà im lặng nghĩa là sót
+đơn. Nổ to thì có người sửa; rỗng im lặng thì không ai biết. Tuyến phòng thủ chính vẫn là
+`@Transactional` trên query dẫn xuất (đã làm ở 2.1) — cái này chỉ là hàng rào cuối.
+
+**Xem lại trước sprint 2.3** — đó là sprint đẻ ra nhiều repository/write path mới, tức là lúc dễ
+giẫm lại mìn nhất. Chi phí sửa 11 policy y hệt nhau dù làm bây giờ hay sau.
+
+## Ba luật cho sprint 2.2 sinh ra từ chính thiết kế 2.1 — PM nêu, chưa ai code
+
+Không phải việc backend, nhưng phải nhớ khi viết merchant_app:
+
+1. **Chuông chỉ kêu khi `order_id` chưa từng thấy VÀ `orderStatus == PENDING`.** Vì `/payment` và
+   `/transition` đều làm `updated_at` đổi → đơn cũ quay lại trong `/sync`; cộng với bộ lọc `>=` và
+   cửa sổ chồng lấn 60 giây, đơn cũ xuất hiện lại là chuyện thường xuyên. Không có luật này thì
+   chuông kêu khi chính chủ quán bấm "Đã nhận tiền" trên máy kia — và chủ quán sẽ tắt chuông.
+2. **Bảng dedupe phải nằm trong drift, không phải RAM.** Foreground service bị OEM kill rồi restart
+   lúc 3 giờ sáng mà dedupe nằm trong bộ nhớ thì toàn bộ đơn cũ sẽ reo lại một lượt.
+3. **Phải test được đường tự-đăng-nhập-lại.** TTL 30 ngày nghĩa là bug ở đường đó sẽ không tự lộ
+   ra khi test tay — ép bằng `app.jwt.expiration-minutes: 2` ở local một buổi.

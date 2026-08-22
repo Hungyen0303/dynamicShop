@@ -13,6 +13,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import tools.jackson.databind.ObjectMapper;
 import vn.dynamicshop.common.tenant.TenantContext;
 
 /**
@@ -25,9 +26,11 @@ import vn.dynamicshop.common.tenant.TenantContext;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final ObjectMapper objectMapper;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, ObjectMapper objectMapper) {
         this.jwtService = jwtService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -40,7 +43,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 try {
                     claims = jwtService.verify(header.substring("Bearer ".length()));
                 } catch (JwtService.InvalidJwtException e) {
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+                    // JSON cùng shape với phần còn lại của API, không phải trang lỗi HTML của
+                    // container (sendError cũ). merchant_app parse được để biết chắc phải đăng
+                    // nhập lại — xem JsonAuthenticationEntryPoint.
+                    JsonAuthenticationEntryPoint.writeUnauthenticated(objectMapper, response, e.getMessage());
                     return;
                 }
                 String subject = String.valueOf(claims.get("sub"));

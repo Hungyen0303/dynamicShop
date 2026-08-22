@@ -185,6 +185,6 @@ class MerchantDeviceApiTest extends AbstractIntegrationTest {
         mockMvc.perform(post("/v1/merchant/devices")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"abc\",\"platform\":\"ANDROID\"}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 }

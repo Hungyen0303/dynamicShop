@@ -1,4 +1,4 @@
-# progress.md — Stage 0 ĐÓNG · Stage 1 TREO chờ credential · Stage 2 ĐANG LÀM (sprint 2.1 xong)
+# progress.md — Stage 0 ĐÓNG · Stage 1 TREO chờ credential · Stage 2 ĐANG LÀM (2.1 + 2.1b xong)
 
 > File này để agent/session sau đọc và tiếp tục ngay, không cần dò lại từ đầu.
 > Giữ lại làm hồ sơ build Stage 0 — xoá khi nào chủ dự án thấy không cần tra lại nữa.
@@ -26,8 +26,8 @@ và `aware.md` ở root repo (tạo ngày 2026-08-22) để biết chi tiết c�
 check lại gì.
 
 🔴 **TRẠNG THÁI MỚI NHẤT — ĐỌC MỤC 9, KHÔNG PHẢI MỤC 8.** Chủ dự án đã quyết đi tiếp **Stage 2**
-trong khi Stage 1 để treo chờ VPS/domain/Firebase/R2 thật. **Sprint 2.1 (backend nhận đơn) đã XONG**,
-test 56/56 xanh. Việc tiếp theo là **sprint 2.2 — merchant_app nhận đơn + chuông**. Mục 8 bên dưới
+trong khi Stage 1 để treo chờ VPS/domain/Firebase/R2 thật. **Sprint 2.1 + 2.1b (backend nhận đơn) đã XONG**,
+test **64/64 xanh**. Việc tiếp theo là **sprint 2.2 — merchant_app nhận đơn + chuông**. Mục 8 bên dưới
 ("DỪNG AGENT", "Stage 2 chưa bàn") là kết luận PM TRƯỚC quyết định này, giữ lại để tra lịch sử chứ
 không còn hiệu lực.
 
@@ -401,9 +401,41 @@ dự án là người verify tay FE/mobile — giao Flutter trước khi API có
   tenant. Sáu test đỏ vì nó. Chi tiết + một câu hỏi đang chờ chủ dự án quyết (policy RLS có nên chịu
   được GUC rỗng không) nằm ở `aware.md` phần "Sprint 2.1".
 
+- **2.1b (chèn thêm sau khi hỏi `pm` lần 3) — ✅ XONG (2026-08-22), test 64/64 xanh.** PM tự đọc
+  code và tìm ra một lỗi mà cả phiên làm việc lẫn `aware.md` đều bỏ sót:
+
+  🔴 **`server_time` tính sai thời điểm → mất đơn im lặng.** Mốc lấy bằng `Instant.now()` SAU khi
+  query, trong khi `updated_at` được gán lúc flush và commit sau đó → đơn nằm trong khe commit
+  không bao giờ xuất hiện lại ở lần poll sau. Nguy hiểm gấp đôi vì contract khi đó đang DẠY client
+  lấy `since` từ `server_time` — để tới 2.2 thì merchant_app sẽ được viết đúng theo luật sai.
+  Đã sửa: lấy mốc TRƯỚC query, trừ biên an toàn 60 giây. **Đã chứng minh 2 regression test bắt
+  được lỗi** bằng cách tạm đảo ngược bản sửa → đúng 2 test đó đỏ, 9 test còn lại xanh.
+
+  Kèm theo: `GET /v1/merchant/orders/{id}` (chi tiết đơn kèm dòng món — `/sync` chỉ trả tóm tắt,
+  thiếu route này thì 2.2 phải dựng màn chi tiết bằng dữ liệu tóm tắt rồi viết lại ở 2.3) ·
+  `server_time`/`has_more` → **camelCase** (đổi lúc chưa có client nào phụ thuộc) · mọi request
+  thiếu/sai xác thực nay trả **401 `UNAUTHENTICATED`** thay vì 403 mặc định của Spring (403 nằm
+  ngoài luật re-login của quyết định #12 → rơi header = im lặng ngừng nhận đơn) · sửa header
+  `apps/merchant_app/INIT.md` (file bị bỏ sót, vẫn ghi "dừng lại và xác nhận với người trước") ·
+  thêm luật "**mọi query dẫn xuất phải có `@Transactional`**" vào `docs/30-backend.md`.
+
 - **2.2 merchant_app nhận đơn**: đăng nhập → danh sách đơn qua polling → chi tiết → đổi trạng thái
   qua offline queue → foreground service + notification channel `new_order` + chuông stream ALARM
   lặp đến khi bấm xác nhận + full-screen intent + onboarding pin/autostart theo OEM + màn tự kiểm tra.
+
+  🔴 **Ba luật bắt buộc, sinh ra từ chính thiết kế 2.1 — đọc trước khi viết poller:**
+  1. **Chuông chỉ kêu khi `order_id` chưa từng thấy VÀ `orderStatus == PENDING`.** `/payment` và
+     `/transition` đều làm `updated_at` đổi, cộng bộ lọc `>=` và cửa sổ chồng lấn 60 giây → đơn cũ
+     quay lại trong `/sync` là chuyện THƯỜNG XUYÊN. Không có luật này thì chuông kêu khi chính chủ
+     quán bấm "Đã nhận tiền" trên máy kia — và chủ quán sẽ tắt chuông.
+  2. **Bảng dedupe nằm trong drift, KHÔNG phải RAM.** Foreground service bị OEM kill rồi restart
+     lúc 3 giờ sáng mà dedupe trong bộ nhớ thì toàn bộ đơn cũ reo lại một lượt.
+  3. **Lấy `since` cho lần poll sau từ `serverTime`**, không từ đồng hồ máy, không tự tính từ
+     `max(updatedAt)` của trang. Xem `docs/90-api-contract.md`.
+
+  **Bar nghiệm thu thêm:** token hết hạn giữa lúc app chạy nền → tự đăng nhập lại, không sót đơn
+  nào. TTL thật là 30 ngày nên đường này KHÔNG bao giờ tự lộ khi test tay — ép bằng
+  `app.jwt.expiration-minutes: 2` ở local một buổi.
 - **2.3 ảnh + catalog**: `POST /v1/merchant/media` (upload + resize, ghi `media.size_bytes/width/
   height`) · catalog write API (tạo/sửa món, giá, bật/tắt còn hàng, gắn ảnh, CRUD danh mục) ·
   `GET/PUT /v1/merchant/storefront` + **validate server-side theo `contracts/blocks.registry.json`**

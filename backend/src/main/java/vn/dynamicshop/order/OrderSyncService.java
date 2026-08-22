@@ -3,6 +3,7 @@ package vn.dynamicshop.order;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
@@ -37,6 +38,29 @@ public class OrderSyncService {
      */
     private static final int MAX_PAGE_SIZE = 50;
 
+    /**
+     * 🔴 Biên an toàn trừ vào mốc {@code serverTime} trả cho client. Đây là bản sửa cho một
+     * lỗi mất đơn IM LẶNG đã lọt qua sprint 2.1 — đọc kỹ trước khi ai đó thấy nó thừa và
+     * xoá đi.
+     *
+     * {@code Order.updatedAt} do Hibernate {@code @UpdateTimestamp} gán lúc FLUSH, nhưng
+     * transaction commit SAU đó. Nên tồn tại cửa sổ mà một đơn đã mang {@code updated_at =
+     * T1} nhưng chưa nhìn thấy được từ transaction khác. Nếu client lấy {@code since} cho
+     * lần poll sau bằng thời điểm đọc xong (T2 > T1), đơn đó rơi vào khe: nó không có trong
+     * kết quả lần này (chưa commit), và lần sau bị lọc mất vì {@code T1 < T2}. **Không bao
+     * giờ xuất hiện lại, không log, không lỗi** — đúng thứ mà cả sản phẩm này tồn tại để
+     * tránh (docs/11-merchant-app.md: "Không bao giờ sót đơn").
+     *
+     * Sửa bằng cách lùi mốc về quá khứ xa hơn mọi transaction có thể kéo dài. Cái giá là
+     * client nhận lại các đơn trong cửa sổ 60 giây ở lần poll kế tiếp — vô hại, vì client
+     * BẮT BUỘC phải dedupe theo {@code id} rồi (push at-least-once, bất biến #4), và ETag
+     * vẫn cho {@code 304} bình thường khi không có gì đổi.
+     *
+     * 60 giây là rộng rãi so với transaction thật của app (mili giây). Có thể siết lại nếu
+     * đo được, nhưng siết quá tay thì lỗi quay lại ở dạng im lặng — không đáng đánh đổi.
+     */
+    private static final Duration WATERMARK_SAFETY_MARGIN = Duration.ofSeconds(60);
+
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
 
@@ -53,6 +77,11 @@ public class OrderSyncService {
     public OrderSyncResponseDto sync(Instant since) {
         Instant from = since == null ? Instant.EPOCH : since;
 
+        // 🔴 Watermark phải lấy TRƯỚC khi query, và lùi thêm một biên an toàn. Xem
+        // WATERMARK_SAFETY_MARGIN — đây là dòng đứng giữa "đồng bộ đúng" và "mất đơn
+        // vĩnh viễn", không phải chi tiết vặt về thứ tự lệnh.
+        Instant watermark = Instant.now().minus(WATERMARK_SAFETY_MARGIN);
+
         // Lấy dư MỘT dòng để biết còn trang sau hay không, thay vì chạy thêm một câu COUNT
         // trên toàn bộ delta — count đắt hơn hẳn và chỉ để trả về đúng một chữ true/false.
         List<Order> page = orderRepository.findByUpdatedAtGreaterThanEqualOrderByUpdatedAtAscIdAsc(
@@ -66,7 +95,7 @@ public class OrderSyncService {
                 .map(order -> OrderSummaryDto.from(order, itemCounts.getOrDefault(order.getId(), 0)))
                 .toList();
 
-        return new OrderSyncResponseDto(summaries, Instant.now(), hasMore);
+        return new OrderSyncResponseDto(summaries, watermark, hasMore);
     }
 
     /**

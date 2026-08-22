@@ -4,7 +4,11 @@ Ghi tay theo `contracts/README.md` — Stage 0 chưa dựng `contracts/openapi.y
 nguồn FE/mobile đọc để biết shape API, **không đọc trực tiếp `.java`**. Nếu code đổi mà file này không
 đổi theo, đó là bug — báo người, đừng tự đoán bên nào đúng (đúng tinh thần `AGENTS.md` mục 6).
 
-Cập nhật lần cuối: **sprint 2.1** (2026-08-22) — thêm 3 endpoint merchant: đồng bộ đơn (polling), nút "Đã
+Cập nhật lần cuối: **sprint 2.1b** (2026-08-22) — thêm `GET /v1/merchant/orders/{id}` (chi tiết đơn kèm
+dòng món), đổi `server_time`/`has_more` sang camelCase, sửa mốc `serverTime` (lỗi mất đơn im lặng), và
+mọi route thiếu/sai xác thực nay trả **401** thay vì 403.
+
+Trước đó — sprint 2.1 (2026-08-22) — thêm 3 endpoint merchant: đồng bộ đơn (polling), nút "Đã
 nhận tiền", đăng ký/thu hồi device token FCM. Outbox worker giờ đã fan-out tới device token thật của đúng
 tenant, nhưng `FcmSender` vẫn là `LogOnlyFcmSender` cho tới khi có Firebase project thật
 (`missing_config.md` mục 3).
@@ -47,7 +51,7 @@ filter) trả về:
 | 400 | `INVALID_PAYMENT_STATUS_VALUE` | `to` trong `/payment` không khớp enum `PaymentStatus` |
 | 400 | `INVALID_SINCE` | `since` trong `/sync` không phải ISO-8601 UTC hợp lệ |
 | 400 | `INVALID_PLATFORM` | `platform` khi đăng ký device không phải `ANDROID`/`IOS` |
-| 401 | *(không có body chuẩn, `response.sendError`)* | JWT sai chữ ký/hết hạn trên route cần auth |
+| 401 | `UNAUTHENTICATED` | **Thiếu** header `Authorization`, HOẶC JWT sai chữ ký/hết hạn, trên bất kỳ route cần auth |
 | 401 | `INVALID_CREDENTIALS` | Sai số điện thoại/mật khẩu lúc login merchant |
 | 404 | `TENANT_NOT_FOUND` | Slug không khớp tenant nào |
 | 404 | `ORDER_NOT_FOUND` | `orderId` không tồn tại |
@@ -211,6 +215,18 @@ một dòng outbox `ORDER_STATUS_CHANGED` (worker xử lý sau, ngoài transacti
 
 ---
 
+### `GET /v1/merchant/orders/{id}`
+
+Auth bắt buộc. Trả `OrderResponseDto` **đầy đủ** — shape giống hệt response tạo đơn, **có `items[]`**.
+
+Đây là đường lấy dòng món; `/sync` cố ý không trả `items` để giữ endpoint poll rẻ. Màn danh sách của
+merchant_app dùng `/sync`, màn chi tiết gọi route này khi chủ quán mở một đơn.
+
+Order không tồn tại **hoặc thuộc tenant khác** → `404 ORDER_NOT_FOUND` (không phải 403 — không xác
+nhận cho người gọi biết orderId đó có tồn tại ở đâu đó hay không).
+
+---
+
 ### `GET /v1/merchant/orders/sync`
 
 Auth bắt buộc. Đây là **kênh nhận đơn foreground** của merchant_app (bất biến #1,
@@ -249,13 +265,19 @@ Response `200`:
       "updatedAt": "2026-08-22T10:00:00Z"
     }
   ],
-  "server_time": "2026-08-22T10:15:00Z",
-  "has_more": false
+  "serverTime": "2026-08-22T10:10:00Z",
+  "hasMore": false
 }
 ```
 
-⚠️ **`server_time` và `has_more` là snake_case**, khác phần còn lại của API (camelCase). Giữ đúng theo
-`docs/30-backend.md` đã chốt từ trước. Các field bên trong `orders[]` vẫn là camelCase.
+🔴 **`serverTime` KHÔNG phải "bây giờ" — nó là mốc đã lùi lại 60 giây, cố ý.** Đừng "sửa" bằng cách
+lấy đồng hồ máy cho gần thực tế hơn. Lý do: `updated_at` của đơn được gán lúc ghi nhưng transaction
+commit sau đó vài mili giây; nếu mốc trả về mới hơn khoảng đó, đơn nằm trong khe sẽ **không bao giờ
+xuất hiện lại**. Biên 60 giây che khe đó. Hệ quả anh sẽ thấy khi test tay: **các đơn trong 60 giây gần
+nhất lặp lại ở lần poll kế tiếp** — đúng như thiết kế, dedupe theo `id` là xong.
+
+(Sprint 2.1 từng trả `server_time`/`has_more` snake_case. Đã đổi sang camelCase ở 2.1b, lúc chưa có
+client nào phụ thuộc.)
 
 Ràng buộc mà client **phải** tuân theo — đọc kỹ trước khi viết merchant_app:
 
@@ -263,9 +285,10 @@ Ràng buộc mà client **phải** tuân theo — đọc kỹ trước khi viế
    danh sách. Muốn chi tiết món thì mở từng đơn (endpoint chi tiết chưa có — sprint sau).
 2. **Trang tối đa 50 đơn, client KHÔNG đổi được** (không có `?limit=`). `has_more: true` nghĩa là gọi
    tiếp với `since` = `updatedAt` của đơn cuối cùng nhận được.
-3. **Lấy mốc `since` cho lần sau từ `server_time` hoặc `updatedAt` của đơn, KHÔNG lấy từ đồng hồ máy.**
-   Đồng hồ điện thoại lệch vài phút là chuyện thường; lệch về tương lai sẽ khiến app bỏ qua vĩnh viễn
-   những đơn nằm trong khoảng lệch.
+3. **Lấy mốc `since` cho lần sau từ `serverTime`, KHÔNG lấy từ đồng hồ máy và KHÔNG tự tính từ
+   `updatedAt` của đơn.** Đồng hồ điện thoại lệch vài phút là chuyện thường; và `max(updatedAt)` của
+   trang vừa nhận cũng không an toàn (có thể mới hơn một đơn đang commit dở). `serverTime` là giá trị
+   duy nhất đã tính sẵn biên an toàn — dùng đúng nó.
 4. **Bộ lọc là `>=` chứ không phải `>`** → đơn ở đúng mốc `since` sẽ xuất hiện lại ở lần gọi sau.
    Client **bắt buộc dedupe theo `id`**. (Việc này vốn đã bắt buộc vì push là at-least-once — bất biến
    #4.) Lý do dùng `>=`: nhiều đơn có thể trùng `updated_at`, dùng `>` sẽ nhảy mất phần còn lại của
@@ -359,7 +382,6 @@ việc cắm vào.
 
 ### Chưa có (ghi lại để FE/mobile không tự đoán)
 
-- **Chi tiết một đơn** (kèm dòng món) cho merchant — chưa có route. `/sync` chỉ trả bản tóm tắt.
 - Upload ảnh sản phẩm — chưa có endpoint HTTP nào (`Product.imageUrl` hiện là String field, chưa có
   consumer thật ở Stage 0/1; hạ tầng `ImageStorageService` được dựng sẵn ở Stage 1 nhưng chưa nối HTTP
   endpoint — xem package `common/storage`).
@@ -376,6 +398,7 @@ việc cắm vào.
 | `POST /v1/merchant/{slug}/auth/login` | Không | Không |
 | `POST /v1/merchant/orders/{id}/transition` | **Bắt buộc** | Không |
 | `GET /v1/merchant/orders/sync` | **Bắt buộc** | Không (nên gửi `If-None-Match`) |
+| `GET /v1/merchant/orders/{id}` | **Bắt buộc** | Không |
 | `POST /v1/merchant/orders/{id}/payment` | **Bắt buộc** | **Bắt buộc** |
 | `POST /v1/merchant/devices` | **Bắt buộc** | Không |
 | `DELETE /v1/merchant/devices` | **Bắt buộc** | Không |
@@ -394,5 +417,12 @@ việc cắm vào.
   định của chủ dự án (`progress.md` mục 3, #12). merchant_app phải **lưu số điện thoại + mật khẩu an
   toàn trên máy và tự gọi lại `/auth/login` khi gặp `401`**; không làm việc này thì app sẽ im lặng ngừng
   nhận đơn khi token hết hạn giữa ca.
-- `401` từ route cần auth **không có body JSON chuẩn** (`response.sendError` từ filter, không qua
-  `GlobalExceptionHandler`). Client đừng parse body của 401 — chỉ dựa vào status code.
+- 🔴 **`401` là tín hiệu DUY NHẤT để đăng nhập lại, và nó phủ cả trường hợp thiếu header.** Sprint 2.1
+  từng để Spring trả `403` mặc định khi thiếu `Authorization`; đã sửa ở 2.1b vì `403` nằm ngoài luật
+  re-login, nên một lỗi rơi header ở client sẽ biến thành **im lặng ngừng nhận đơn**. Nay cả hai
+  trường hợp đều ra `401` với body `{"code":"UNAUTHENTICATED","message":"..."}` — cùng shape lỗi với
+  phần còn lại của API.
+- **Luật cho merchant_app**: gặp `401` → thử `POST /v1/merchant/{slug}/auth/login` lại MỘT lần bằng
+  số điện thoại + mật khẩu đã lưu, rồi gọi lại request cũ. Thất bại lần hai mới báo người dùng. Phòng
+  thủ thêm: nếu vì lý do nào đó nhận `403` trên route merchant, xử lý y như `401` — không có route
+  merchant nào dùng `403` cho mục đích khác.
