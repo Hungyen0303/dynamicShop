@@ -1,8 +1,12 @@
 # 11 — Merchant App
 
-> 🔴 **STAGE 2 — CHƯA LÀM BÂY GIỜ.**
-> Bắt đầu sau khi Stage 1 xong (VPS + Firebase + FCM chạy ổn định). Xem `70-stages.md`.
-> Nếu được giao task thuộc file này, dừng lại và xác nhận với người trước.
+> 🟢 **STAGE 2 — ĐANG LÀM, phạm vi bị cắt.** (cập nhật 2026-08-22)
+> Câu gốc "chưa làm bây giờ, bắt đầu sau khi Stage 1 xong" **đã được chủ dự án override**: đi tiếp
+> Stage 2 trong khi Stage 1 để treo chờ VPS/domain/Firebase/R2 thật.
+> **Đọc `progress.md` mục 9 trước khi làm bất cứ gì trong file này** — ở đó có phạm vi sprint đã
+> cắt (2.1 → 2.5), ranh giới cái gì làm được không cần credential, và **hai luật kiến trúc bắt
+> buộc** (`IncomingOrderSink` duy nhất, `PushTokenProvider` là interface).
+> Không cần hỏi lại có được làm Stage 2 không — nhưng đừng tự mở rộng ra ngoài sprint đã cắt.
 
 Đọc kèm `00-context.md` và `70-stages.md`. Doc này ghi **ràng buộc**, không mô tả code.
 

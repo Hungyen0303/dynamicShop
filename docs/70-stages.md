@@ -14,7 +14,7 @@ Mục tiêu Stage 0 không phải "có sản phẩm" mà là **hiểu được t
 
 ---
 
-## Stage 0 — Local hoàn chỉnh 🟢 ĐANG Ở ĐÂY
+## Stage 0 — Local hoàn chỉnh ✅ ĐÃ ĐÓNG (2026-08-22)
 
 **Điều kiện hoàn thành:** mở máy lên, chạy vài lệnh, và thấy được **toàn bộ vòng đời một đơn hàng** với 2 shop giả lập — không cần internet.
 
@@ -66,7 +66,7 @@ Lưu vào thư mục local, Spring serve tĩnh. Không R2, không CDN.
 
 ---
 
-## Stage 1 — Hạ tầng ảo + Firebase
+## Stage 1 — Hạ tầng ảo + Firebase 🟡 TREO (code xong, chờ VPS/domain/Firebase/R2 thật)
 
 **Bắt đầu khi:** Stage 0 xong hết, bạn giải thích được flow cho người khác nghe.
 
@@ -80,9 +80,15 @@ Lưu vào thư mục local, Spring serve tĩnh. Không R2, không CDN.
 
 ---
 
-## Stage 2 — Merchant app
+## Stage 2 — Merchant app 🟢 ĐANG Ở ĐÂY (phạm vi bị cắt)
 
-**Bắt đầu khi:** Stage 1 xong, FCM gửi/nhận được ổn định.
+> 🔴 **Cập nhật 2026-08-22 — điều kiện "bắt đầu khi" bên dưới đã được chủ dự án override.**
+> Stage 2 bắt đầu SỚM trong khi Stage 1 vẫn treo (chưa có VPS/domain/Firebase/R2 thật). Chấp nhận
+> hai stage mở cùng lúc. **Phạm vi đã được cắt lại — đọc `progress.md` mục 9** để biết sprint nào
+> làm được không cần credential và hai luật kiến trúc bắt buộc. Hệ quả đã biết: Stage 2 **không
+> đóng được** cho tới khi có FCM thật (bar "8 tiếng, chuông kêu lúc 3 giờ sáng" cần push thật).
+
+**Bắt đầu khi:** ~~Stage 1 xong, FCM gửi/nhận được ổn định.~~ → xem ghi chú override ở trên.
 
 - merchant_app Android: nhận đơn + FCM + foreground service + chuông
 - Xử lý OEM giết app nền (xem `11-merchant-app.md`)
@@ -139,9 +145,9 @@ Trước khi bắt đầu, tra việc mình định làm ở đây:
 | customer_app + SDUI render | 0 | ✅ |
 | Mock data 2 shop | 0 | ✅ |
 | Outbox (bảng + worker, chưa nối FCM) | 0 | ✅ ghi log thay vì gửi |
-| Deploy, VPS, domain | 1 | ❌ |
-| Firebase, FCM | 1 | ❌ |
-| merchant_app | 2 | ❌ |
+| Deploy, VPS, domain | 1 | 🟡 code + compose/Caddy đã xong, chờ VPS thật (`missing_config.md`) |
+| Firebase, FCM | 1 | 🟡 adapter đã xong, fallback log-only, chờ service-account thật |
+| merchant_app | 2 | 🟢 ĐANG LÀM — phạm vi bị cắt, đọc `progress.md` mục 9 trước |
 | Next.js admin | 3 | ❌ |
 | Export dữ liệu + quota | 3 | ❌ |
 | CI/CD | 3 | ❌ |
