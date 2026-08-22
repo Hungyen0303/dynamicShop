@@ -1,21 +1,23 @@
-# missing_config.md — Cấu hình thật còn thiếu cho Stage 1
+# missing_config.md — Cấu hình thật còn thiếu (Stage 1 treo, Stage 2 đang mock quanh nó)
 
 > Mọi thứ dưới đây đã có **fallback an toàn**: không điền gì thì app vẫn chạy đầy đủ ở local (đã
-> verify `./gradlew clean test` **64/64 xanh** sau sprint 2.1b + chạy thật `docker compose ... up`). Danh sách này là
-> việc **chủ dự án tự làm sau** khi có tài khoản/thiết bị thật. Xem `progress.md` mục 6, 8 để biết
-> bối cảnh phê duyệt Stage 1 và kết luận PM, `aware.md` để biết quyết định kỹ thuật nào cần tự
-> check lại.
+> verify `./gradlew clean test` **64/64 xanh** sau sprint 2.1b + chạy thật `docker compose ... up`).
+> Danh sách này là việc **chủ dự án tự làm sau** khi có tài khoản/thiết bị thật — nó **không chặn**
+> việc dựng code Stage 2 (xem `progress.md` mục 10: thiếu gì thì mock).
+> Xem `progress.md` mục 9 + 10 để biết phạm vi và luật mock, `aware.md` để biết quyết định kỹ thuật
+> nào cần tự check lại (mọi mock đều được ghi ở đó).
 
-## 🔴 Trạng thái (2026-08-22, cập nhật lần 2) — đọc trước khi làm bất cứ mục nào
+## 🔴 Trạng thái (2026-08-22, cập nhật lần 3) — đọc trước khi làm bất cứ mục nào
 
-**Chủ dự án đã quyết: ĐI TIẾP STAGE 2, để 6 mục dưới đây TREO, tự điền sau khi rảnh.** Xem
-`progress.md` mục 9 để biết phạm vi Stage 2 đã được cắt lại thế nào. Nghĩa là **hai stage mở cùng
-lúc** — Stage 1 treo chờ credential, Stage 2 đang làm phần không cần credential.
+**Chủ dự án đã quyết: ĐI TIẾP STAGE 2 và LÀM HẾT các phần còn lại, 6 mục dưới đây cứ để treo.**
+Thiếu credential thì **mock và ghi lại**, KHÔNG dừng chờ. Xem `progress.md` **mục 9** (phạm vi
+sprint) và **mục 10** (luật mock — đọc trước khi viết code). Nghĩa là **hai stage mở cùng lúc**:
+Stage 1 treo chờ credential, Stage 2 làm tới hết bằng mock ở chỗ nào thiếu.
 
 Mọi mục dưới đây đều cần chủ dự án tự đi lấy (tài khoản, thanh toán, xác minh danh tính), không
-phải việc code. Agent phiên sau: **đừng tự đi "làm thử" hay đoán giá trị cho các mục này** — chỉ
-dùng file này để biết mục nào đã điền, mục nào còn trống, việc kế tiếp là gì cho mục đó (mỗi mục
-có ghi "→ agent làm gì tiếp khi có").
+phải việc code. Agent phiên sau: **đừng tự đi "làm thử" hay đoán giá trị cho các mục này**, nhưng
+cũng **đừng lấy chúng làm lý do dừng** — chỉ dùng file này để biết mục nào đã điền, mục nào còn
+trống, việc kế tiếp là gì cho mục đó (mỗi mục có ghi "→ agent làm gì tiếp khi có").
 
 Đánh dấu `[x]` khi chủ dự án đã điền xong một mục, để agent sau biết mục nào sẵn sàng làm tiếp:
 
@@ -24,7 +26,7 @@ có ghi "→ agent làm gì tiếp khi có").
 - [ ] 3. Firebase service-account thật (backend FCM)
 - [ ] 4. Cloudflare R2 credential thật
 - [ ] 5. Kế hoạch backup Postgres
-- [ ] 6. Firebase project + `google-services.json`/`GoogleService-Info.plist` (customer_app)
+- [ ] 6. Firebase project + `google-services.json` (customer_app **và** merchant_app)
 
 **Tiêu chí đóng Stage 1 thật (PM chốt)** — khi đủ 1+2+3+6 ở trên, agent cần verify đủ 3 điều này
 trước khi báo Stage 1 xong:
@@ -46,33 +48,53 @@ của upload ảnh. Upload + resize nay nằm trong sprint 2.3 (`progress.md` m�
 
 ---
 
-## 🟡 Việc Stage 2 bị CHẶN vì thiếu credential (thêm 2026-08-22)
+## 🟡 Stage 2 khi thiếu credential — MOCK CÁI GÌ, CHỜ XÁC MINH CÁI GÌ (cập nhật 2026-08-22 lần 3)
 
-Ghi ở đây thay vì tạo file trạng thái thứ ba. Đây là phần của Stage 2 **không** làm được cho tới
-khi mục 3 + mục 6 phía trên được điền:
+Ghi ở đây thay vì tạo file trạng thái thứ ba. Mục này từng có tiêu đề "việc Stage 2 bị CHẶN" —
+**cách gọi đó sai và đã bỏ**: chủ dự án chốt làm hết Stage 2, thiếu gì mock nấy (`progress.md` mục
+10). Phân biệt cho rõ hai loại, vì chúng đòi hỏi hành động khác hẳn nhau:
 
-- **Lấy device token thật** — `getToken()` của FCM cần `google-services.json` thật. Cho tới lúc đó
-  merchant_app flavor dev dùng `FakeTokenProvider` (token giả cố định) để route đăng ký device vẫn
-  chạy end-to-end thật được. Xem luật kiến trúc #2 ở `progress.md` mục 9.
-- **Chứng minh push đánh thức máy đang ngủ / bị OEM kill** — kịch bản test 1/2/6/7 trong
-  `docs/11-merchant-app.md` ở dạng đầy đủ. Cho tới lúc đó chạy bài test 8 tiếng bằng
-  **polling-only** (vẫn gỡ được phần lớn rủi ro OEM).
-- **Đo latency `orders/sync` qua 4G / server thật** — cần mục 1 (VPS + domain).
-- **Crashlytics cho merchant_app** — dùng lại đúng khuôn guard đã chứng minh ở customer_app.
-- 🔴 **Backend truy cập được từ điện thoại** — chặn bài test "chạy nền 8 tiếng". `adb reverse`
-  KHÔNG dùng được vì nó chết khi rút cáp, mà bài test này bắt buộc rút cáp (máy phải chạy pin để
-  Android vào Doze; cắm sạc thì test xanh giả). Hai lựa chọn:
+### A. Mock được → LÀM LUÔN, không chờ (kèm luật mock ở `progress.md` mục 10)
+
+| Thiếu | Mock | Ghi ở đâu khi làm xong |
+|---|---|---|
+| Device token FCM thật | `PushTokenProvider` interface + `FakeTokenProvider` (token giả cố định, chỉ ở flavor dev) | `aware.md` |
+| Push tới máy | Không mock — dùng kênh **polling thật**, một `IncomingOrderSink` duy nhất | `aware.md` |
+| Crashlytics merchant_app | Khuôn guard y hệt `customer_app`: plugin Gradle chỉ apply khi có `google-services.json` thật | `aware.md` |
+| R2 | **Không cần mock** — `LocalDiskImageStorageService` là bản thật, chạy được (`app.storage.mode=local`) | — |
+| Server thật/domain | Backend local, app trỏ `localhost` hoặc IP LAN qua cấu hình flavor (không hardcode) | `aware.md` |
+
+### B. KHÔNG mock được → chờ xác minh, nhưng KHÔNG chặn việc dựng code
+
+Ba thứ này là **phép đo trên phần cứng/mạng thật**, không phải hạng mục code. Mock chúng không tạo
+ra thông tin mới, chỉ tạo niềm tin sai:
+
+- **Push đánh thức máy đang ngủ / bị OEM kill** — kịch bản test 1/2/6/7 trong
+  `docs/11-merchant-app.md`. Câu hỏi về hành vi MIUI/ColorOS + Doze, không phải về code của mình.
+- **Latency `orders/sync` qua 4G thật** — cần mục 1 (VPS + domain).
+- **Chuông còn kêu sau 8 tiếng chạy nền** — chạy được **sớm bằng polling-only** ngay cuối sprint
+  2.2, không cần đợi FCM. Tốn *thời gian đồng hồ*, không tốn công.
+
+### C. Chủ dự án cần chuẩn bị cho bài test 8 tiếng (có lead time — bắt đầu sớm)
+
+- 🔴 **Máy Xiaomi hoặc Oppo thật.** Samsung SM-A256E đã dùng ở Stage 0 vẫn nên chạy, nhưng
+  MIUI/ColorOS mới là thứ giết app nền. Đi mượn/mua máy cũ sớm.
+- 🔴 **Backend truy cập được từ điện thoại.** `adb reverse` KHÔNG dùng được vì nó chết khi rút cáp,
+  mà bài test này **bắt buộc rút cáp** (máy phải chạy pin để Android vào Doze; cắm sạc thì test
+  xanh giả). Hai lựa chọn:
   1. **Laptop + Wi-Fi LAN** (làm được ngay, không tốn tiền): backend chạy trên laptop, flavor dev
      của merchant_app trỏ `http://192.168.x.x:8080`, cho phép cleartext ở flavor dev, mở firewall
      Windows cổng 8080, và **tắt sleep của laptop suốt 8 tiếng**.
   2. **Lấy VPS ở mục 1** — sạch hơn hẳn và mở khoá luôn phép đo qua 4G thật.
-- **Một cách bắn đơn lúc 3 giờ sáng mà không đụng vào máy** — script `curl POST
-  /v1/s/{slug}/orders` kèm `Idempotency-Key` khác nhau, hẹn giờ 30 phút/lần bằng Task Scheduler.
-  Không có nó thì bài test chỉ chứng minh "app còn sống", không chứng minh "chuông còn kêu".
+- **Cách bắn đơn lúc 3 giờ sáng mà không đụng vào máy** — script `curl POST /v1/s/{slug}/orders`
+  kèm `Idempotency-Key` khác nhau, hẹn giờ 30 phút/lần bằng Task Scheduler. Không có nó thì bài
+  test chỉ chứng minh "app còn sống", không chứng minh "chuông còn kêu".
 
-**→ Hệ quả: Stage 2 KHÔNG đóng được** cho tới khi có FCM thật (bar hoàn thành trong
-`docs/70-stages.md` là "chạy nền 8 tiếng trên Xiaomi/Oppo thật, gửi đơn lúc 3 giờ sáng, chuông vẫn
-kêu"). Đây là đánh đổi đã biết và đã được chủ dự án chấp nhận, không phải thiếu sót.
+**→ Hệ quả, nói thẳng:** sau khi làm hết 2.2–2.4, **code Stage 2 xong**, nhưng **bar hoàn thành
+Stage 2** (`docs/70-stages.md`: "chạy nền 8 tiếng trên Xiaomi/Oppo thật, gửi đơn lúc 3 giờ sáng,
+chuông vẫn kêu") **vẫn chưa đạt** — vì đó là bài kiểm tra vật lý, không phải hạng mục code. Lúc đó
+phần còn lại là **xác minh**, không phải **xây dựng**. Agent phiên sau đọc thấy "Stage 2 chưa đóng"
+thì đừng tưởng còn thiếu code.
 
 ---
 
@@ -142,13 +164,16 @@ khai qua HTTP không auth — xem ghi chú trong test `S3ImageStorageServiceTest
 cũng phải set policy public-read tương tự, phản ánh đúng bước cần làm ở R2), tạo API token
 (access key + secret key), lấy endpoint dạng `https://<account_id>.r2.cloudflarestorage.com`.
 
-⚠️ Cũng như Firebase: **chưa có endpoint HTTP upload ảnh nào gọi tới** — tính năng chụp ảnh món ăn
-là `merchant_app` Stage 2. R2 credential chỉ cần điền khi Stage 2 thật sự cần upload.
+⚠️ **Cập nhật 2026-08-22 (lần 3): mục này KHÔNG chặn sprint 2.3.** `LocalDiskImageStorageService`
+(`app.storage.mode=local`, mặc định) là bản **thật**, không phải mock — upload + resize sẽ được dựng
+và test đầy đủ trên nó. R2 chỉ là đổi nơi lưu file, không đổi một dòng logic nào ở tầng trên, vì mọi
+thứ đi qua interface `ImageStorageService`.
 
-**→ Khi có credential R2:** chỉ cần set `app.storage.mode=s3` + 5 property `app.storage.s3.*`
-trong `.env.prod`/`docker-compose.prod.yml` để SẴN SÀNG — **không có việc gì để "verify" thêm**
-vì chưa có endpoint upload nào gọi tới (không phải điều kiện đóng Stage 1). Việc HTTP upload +
-resize thật sự thuộc Stage 2, làm khi đến lúc, không làm sớm (xem cảnh báo PM ở đầu file).
+**→ Khi có credential R2:** set `app.storage.mode=s3` + 5 property `app.storage.s3.*` trong
+`.env.prod`/`docker-compose.prod.yml`. Sau sprint 2.3 thì **có việc để verify thật**: gọi endpoint
+upload, kiểm ảnh đọc được công khai qua `public-base-url` không cần auth (đây chính là chỗ bucket
+MinIO từng trả 403 lúc test — xem `S3ImageStorageServiceTest`). Chạy test upload trên **cả hai**
+mode `local` và MinIO trước khi tin là R2 sẽ chạy.
 
 ## 5. Backup Postgres
 
@@ -161,7 +186,7 @@ suất, và một lần diễn tập restore thật trước khi có dữ liệu
 sau: đừng tự dựng job backup khi chưa được giao rõ, kể cả nếu mục 1-4 đã xong hết. Đây là mục
 duy nhất trong file này KHÔNG nằm trong "Tiêu chí đóng Stage 1" — chỉ ghi lại để không quên.
 
-## 6. Firebase Crashlytics — phía customer_app (client)
+## 6. Firebase Crashlytics — phía client (customer_app, và merchant_app từ sprint 2.2)
 
 **Đã nối code (2026-08-22), CHỈ còn thiếu file config thật.** `firebase_core`/`firebase_crashlytics`
 đã thêm vào `pubspec.yaml`, `CrashReporting.init()` (`lib/config/crash_reporting.dart`) đã gọi ở cả
@@ -191,3 +216,9 @@ mục 7). Xem `aware.md` để biết vì sao build-check được coi là cần
 `flutter test`, không cài lên máy/emulator để verify Crashlytics ghi nhận crash thật**, đó là việc
 chủ dự án tự làm (`progress.md` mục 7, quy trình FE/mobile). Đây là điều kiện #2/#3 gián tiếp
 trong "Tiêu chí đóng Stage 1" (customer_app cần chạy được, Firebase cần thật).
+
+⚠️ **Từ sprint 2.2, mục này còn thêm một vai trò quan trọng hơn nhiều**: `merchant_app` cần chính
+file `google-services.json` này để `getToken()` của FCM trả về **device token thật**. Cho tới lúc
+đó merchant_app dùng `FakeTokenProvider` (token giả cố định, chỉ flavor dev) — route đăng ký device
+vẫn chạy end-to-end thật, chỉ là token không dùng được để gửi push. Đây là mục có giá trị mở khoá
+cao nhất trong cả file, cùng với mục 3.

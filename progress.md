@@ -1,4 +1,4 @@
-# progress.md — Stage 0 ĐÓNG · Stage 1 TREO chờ credential · Stage 2 ĐANG LÀM (2.1 + 2.1b xong)
+# progress.md — Stage 0 ĐÓNG · Stage 1 TREO · Stage 2 ĐANG LÀM HẾT, thiếu credential thì MOCK
 
 > File này để agent/session sau đọc và tiếp tục ngay, không cần dò lại từ đầu.
 > Giữ lại làm hồ sơ build Stage 0 — xoá khi nào chủ dự án thấy không cần tra lại nữa.
@@ -25,11 +25,17 @@ Nếu agent sau đọc thấy dòng này mà không chắc — đây LÀ phê du
 và `aware.md` ở root repo (tạo ngày 2026-08-22) để biết chi tiết còn thiếu gì / cần chủ dự án
 check lại gì.
 
-🔴 **TRẠNG THÁI MỚI NHẤT — ĐỌC MỤC 9, KHÔNG PHẢI MỤC 8.** Chủ dự án đã quyết đi tiếp **Stage 2**
-trong khi Stage 1 để treo chờ VPS/domain/Firebase/R2 thật. **Sprint 2.1 + 2.1b (backend nhận đơn) đã XONG**,
-test **64/64 xanh**. Việc tiếp theo là **sprint 2.2 — merchant_app nhận đơn + chuông**. Mục 8 bên dưới
-("DỪNG AGENT", "Stage 2 chưa bàn") là kết luận PM TRƯỚC quyết định này, giữ lại để tra lịch sử chứ
-không còn hiệu lực.
+🔴 **TRẠNG THÁI MỚI NHẤT — ĐỌC MỤC 9 RỒI MỤC 10. KHÔNG PHẢI MỤC 8.**
+
+Chủ dự án đã quyết đi tiếp **Stage 2** trong khi Stage 1 để treo chờ VPS/domain/Firebase/R2 thật
+(mục 9), và sau đó chốt thêm: **làm HẾT các phần còn lại của Stage 2, thiếu credential thì MOCK
+và ghi lại, không dừng chờ** (mục 10 — đọc kỹ luật mock ở đó trước khi viết dòng code nào).
+
+**Sprint 2.1 + 2.1b (backend nhận đơn) đã XONG**, test **64/64 xanh**. Việc tiếp theo là **sprint
+2.2 — merchant_app nhận đơn + chuông**, rồi 2.3, rồi 2.4, không dừng giữa chừng để hỏi.
+
+Mục 8 bên dưới ("DỪNG AGENT", "Stage 2 chưa bàn") là kết luận PM TRƯỚC hai quyết định này — giữ
+lại để tra lịch sử, KHÔNG còn hiệu lực.
 
 ⚠️ Một agent trước đó (task backend Stage 1 đầu tiên) đã tự viết comment "đã được duyệt trước" ở
 `backend/build.gradle.kts` khi thêm dependency — comment đó ĐÚNG về mặt kết luận (Stage 1 đã được
@@ -481,3 +487,77 @@ tranh chấp (`updated_at`/version) + luôn giữ bản "tốt cuối cùng" đ�
 **Stage 2 sẽ KHÔNG đóng được** — bar hoàn thành (`docs/70-stages.md`: "chạy nền 8 tiếng trên máy
 Xiaomi/Oppo thật, gửi đơn lúc 3 giờ sáng, chuông vẫn kêu") cần FCM thật. Việc còn treo ghi trong
 `missing_config.md` — **một file trạng thái duy nhất, đừng đẻ file thứ ba**.
+
+⚠️ **Đọc thêm mục 10** — chủ dự án đã chốt sau đoạn này: việc "chưa đóng được" KHÔNG phải lý do để
+dừng dựng code. Làm hết 2.2–2.4, thiếu gì mock nấy. Sau đó phần còn lại là **xác minh**, không phải
+**xây dựng** — hai thứ khác nhau, đừng lẫn.
+
+---
+
+## 10. 🔴 CHỈ ĐẠO MỚI (2026-08-22): LÀM HẾT STAGE 2, THIẾU GÌ THÌ MOCK
+
+**Quyết định trực tiếp của chủ dự án trong phiên làm việc**, không phải agent tự suy diễn. Nguyên
+văn ý chính: *"những phần còn thiếu như FCM, Firebase cứ để đó, note vào progress là như vậy, và
+ta sẽ hoàn thành tất cả các phần còn lại trong Stage 2 — phần nào không có thì mock và note lại."*
+
+Đây là chỉ đạo **mở rộng** mục 9, không thay thế. Mục 9 vẫn đúng về phạm vi từng sprint và hai
+luật kiến trúc; mục 10 chỉ đổi **thái độ với credential còn thiếu**: trước đây coi là điểm dừng,
+nay coi là **thứ đến sau, không được phép chặn việc dựng code**.
+
+### Nghĩa là gì, cụ thể
+
+1. **Làm hết 2.2 → 2.3 → 2.4.** Không dừng lại giữa chừng để chờ VPS/Firebase/R2. Không hỏi lại
+   "có được làm tiếp không" ở mỗi ranh giới sprint.
+2. **Thiếu credential thì MOCK, không bỏ trống.** Mock phải chạy được thật ở local, không phải
+   `TODO` hay hàm rỗng.
+3. **Mọi mock đều ghi vào `aware.md`** + đánh dấu trong `missing_config.md`, để chủ dự án tự kiểm
+   lại khi có credential thật.
+4. **2.5 (nối FCM thật) vẫn là việc CUỐI**, không phải vì bị chặn về code mà vì không có gì để
+   chạy thử — xem "cái gì thật sự không mock được" bên dưới.
+
+### 🔴 Luật mock — tuân đúng, nếu không sẽ phải viết lại
+
+Mock ở đây KHÔNG có nghĩa là viết tạm rồi vứt. Nó phải thoả cả ba:
+
+1. **Mock nằm sau một interface, không nằm rải trong logic nghiệp vụ.** Đổi sang bản thật = đăng
+   ký một implementation khác, không sửa call site nào. Đây chính là luật kiến trúc #2 ở mục 9
+   (`PushTokenProvider`), áp cho mọi mock mới.
+2. **Mock chỉ được chọn ở flavor/profile dev.** Bản thật là mặc định cho staging/prod. Không bao
+   giờ để một build production im lặng chạy bằng mock — thà nổ lúc khởi động còn hơn giả vờ chạy.
+3. **Mock phải để lại dấu vết quan sát được** — log rõ ràng ("đang dùng FakeXxx"), hoặc hiển thị
+   trên màn tự kiểm tra của app. Không có dấu vết thì sau này không ai biết mình đang test cái
+   thật hay cái giả, và đó là cách sinh ra niềm tin sai.
+
+### Cái gì mock được (làm luôn, không chờ)
+
+| Thiếu gì | Mock thế nào | Sprint |
+|---|---|---|
+| FCM device token thật | `PushTokenProvider` interface + `FakeTokenProvider` sinh token giả cố định ở flavor dev → route `POST /v1/merchant/devices` chạy end-to-end thật | 2.2 |
+| Push đến máy | **Không mock push.** Dùng kênh polling thật (bất biến #1 vốn đã yêu cầu hai kênh) — `IncomingOrderSink` duy nhất, poller gọi nó, handler FCM sau này gọi đúng nó | 2.2 |
+| Firebase Crashlytics (merchant_app) | Dùng lại đúng khuôn guard đã chứng minh ở `customer_app`: plugin Gradle chỉ apply khi tìm thấy `google-services.json` thật, thiếu file thì build không đổi | 2.2 |
+| R2 / object storage | **Không cần mock** — `LocalDiskImageStorageService` đã là bản thật chạy được (`app.storage.mode=local`, mặc định). Đổi sang R2 chỉ là đổi 5 property | 2.3 |
+| Server thật / domain | Backend chạy local; app trỏ `localhost` (dev) hoặc IP LAN. Không hardcode — để trong cấu hình flavor | 2.2 |
+
+### Cái gì thật sự KHÔNG mock được (và vì sao đừng cố)
+
+Ba thứ này là **phép đo trên phần cứng/mạng thật**, không phải code. Mock chúng không tạo ra thông
+tin gì mới, chỉ tạo ra niềm tin sai:
+
+- **Push có đánh thức được máy đang ngủ / bị OEM kill không** — câu hỏi về hành vi của MIUI/ColorOS
+  và Doze, không phải về code của mình. Một mock trả về "thành công" chỉ nói lên rằng mock hoạt
+  động.
+- **Latency `orders/sync` qua 4G thật** — phụ thuộc mạng nhà mạng ở tỉnh.
+- **Chuông có kêu sau 8 tiếng chạy nền không** — tốn *thời gian đồng hồ*, không tốn công. Chạy
+  được sớm bằng **polling-only** ngay từ cuối 2.2, không cần đợi FCM.
+
+**→ Hệ quả, nói thẳng:** sau khi làm hết 2.2–2.4, **code Stage 2 sẽ xong**, nhưng **bar hoàn thành
+Stage 2** trong `docs/70-stages.md` ("chạy nền 8 tiếng trên Xiaomi/Oppo thật, gửi đơn lúc 3 giờ
+sáng, chuông vẫn kêu") **vẫn chưa đạt** — vì bar đó là bài kiểm tra vật lý, không phải hạng mục
+code. Phần còn lại lúc đó là **xác minh, không phải xây dựng**. Đây là đánh đổi đã biết và đã được
+chủ dự án chấp nhận; đừng để agent phiên sau đọc thấy "Stage 2 chưa đóng" rồi tưởng còn thiếu code.
+
+### Agent phiên sau: đọc mục này trước khi nghĩ tới việc dừng
+
+Nếu bạn định dừng lại vì "thiếu Firebase/VPS/R2" — **không dừng**. Mock theo luật ở trên, ghi vào
+`aware.md`, đi tiếp. Chỉ dừng khi gặp thứ trong danh sách "KHÔNG mock được", và kể cả lúc đó cũng
+chỉ dừng đúng phần đó chứ không dừng cả sprint.
