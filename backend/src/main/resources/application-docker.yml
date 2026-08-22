@@ -1,0 +1,25 @@
+# Profile cho chạy trong container (infra/docker/docker-compose.prod.yml) — production THẬT
+# hoặc test dạng-production ở local đều dùng chung profile này, khác application-local.yml
+# (gitignored, chỉ cho bootRun trực tiếp trên máy dev). Không hardcode giá trị nào — tất cả
+# đọc từ biến môi trường compose truyền vào, KHÔNG có default nên thiếu biến là app từ chối
+# khởi động thay vì âm thầm chạy sai (giống tinh thần infra/docker/.env hiện có).
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  flyway:
+    url: ${SPRING_FLYWAY_URL}
+    user: ${SPRING_FLYWAY_USER}
+    password: ${SPRING_FLYWAY_PASSWORD}
+
+app:
+  admin-datasource:
+    url: ${APP_ADMIN_DATASOURCE_URL}
+    username: ${APP_ADMIN_DATASOURCE_USERNAME}
+    password: ${APP_ADMIN_DATASOURCE_PASSWORD}
+  jwt:
+    secret: ${APP_JWT_SECRET}

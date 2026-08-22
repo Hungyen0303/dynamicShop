@@ -1,0 +1,7 @@
+# Reverse proxy vào backend, TLS tự động. Với domain thật đã trỏ DNS public, Caddy tự xin cert
+# Let's Encrypt. Với DOMAIN=localhost (mặc định test local), Caddy dùng CA nội bộ của chính nó
+# (không phải Let's Encrypt — ACME không cấp cho localhost) và VẪN redirect HTTP → HTTPS như
+# thật — đã verify: curl -k https://localhost:8443/actuator/health (xem missing_config.md).
+{$DOMAIN} {
+	reverse_proxy backend:8080
+}

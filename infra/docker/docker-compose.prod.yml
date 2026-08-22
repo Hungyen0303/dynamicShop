@@ -1,0 +1,106 @@
+# DynamicShop — hạ tầng DẠNG PRODUCTION (Postgres + Spring Boot + Caddy), theo đúng hình dạng
+# mô tả ở infra/docs/README.md mục "Production". Dùng để:
+#   1. Test THẬT ở local rằng chuỗi container → backend → postgres chạy đúng, TRƯỚC khi có VPS
+#      thật (nguyên tắc "local trước, mọi thứ khác sau" — docs/70-stages.md).
+#   2. Chính là file compose deploy lên VPS thật sau này — chỉ cần đổi DOMAIN trong .env.
+#
+# KHÔNG đụng ./docker-compose.yml (compose dev hiện có, đang chạy tốt) — file này độc lập,
+# tên container/network/volume khác hẳn để chạy song song không xung đột.
+#
+# 🔴 BÀI HỌC THẬT (2026-08-22): lần đầu dựng file này, cả hai compose file cùng nằm trong
+# `infra/docker/` nên Docker Compose lấy project name mặc định giống nhau (tên thư mục —
+# "docker"), và service key cùng tên "postgres" → Compose coi đó là MỘT service, chạy file
+# này đã "recreate" mất container Postgres DEV thật (may mắn volume `docker_ds-pgdata` không
+# bị xoá nên phục hồi được bằng `docker compose -f docker-compose.yml up -d`, dữ liệu mock
+# 2 tenant còn nguyên). Vì vậy bên dưới GHIM `name:` cố định — bắt buộc dùng đúng lệnh có
+# `-p ds-prod` (hoặc để nguyên `name:` tự nhận) để không bao giờ lặp lại lỗi này.
+#
+# Chạy:  cp .env.prod.example .env.prod && docker compose --env-file .env.prod \
+#          -f docker-compose.prod.yml up -d --build
+# Dừng:  docker compose --env-file .env.prod -f docker-compose.prod.yml down
+#
+# Test local mặc định DOMAIN=localhost → Caddy tự redirect HTTP (cổng ${HTTP_PORT:-8080}) sang
+# HTTPS (cổng ${HTTPS_PORT:-8443}) bằng CA nội bộ của chính nó (không phải Let's Encrypt — ACME
+# không cấp cho localhost). Test qua: curl -k https://localhost:8443/actuator/health — đã verify
+# thật 2026-08-22, xanh 200. Khi có domain thật, đổi DOMAIN trong .env.prod rồi mở cổng 80/443
+# thật trên VPS, Caddy tự xin cert Let's Encrypt thật, không cần -k nữa.
+
+name: ds-prod
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ds-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dynamicshop}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?bat buoc dat trong .env.prod}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?bat buoc dat trong .env.prod}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?bat buoc dat trong .env.prod}
+    volumes:
+      - ds-pgdata-prod:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dynamicshop}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [ds-prod-net]
+    # KHÔNG publish port ra host — chỉ backend trong network nội bộ mới nói chuyện được với DB.
+
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    container_name: ds-backend-prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-dynamicshop}
+      SPRING_DATASOURCE_USERNAME: app_user
+      SPRING_DATASOURCE_PASSWORD: ${APP_USER_PASSWORD:?bat buoc dat trong .env.prod}
+      SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-dynamicshop}
+      SPRING_FLYWAY_USER: ${POSTGRES_USER:-postgres}
+      SPRING_FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:?bat buoc dat trong .env.prod}
+      APP_ADMIN_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-dynamicshop}
+      APP_ADMIN_DATASOURCE_USERNAME: app_admin
+      APP_ADMIN_DATASOURCE_PASSWORD: ${APP_ADMIN_PASSWORD:?bat buoc dat trong .env.prod}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:?bat buoc dat trong .env.prod — KHONG dung secret dev commit san}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [ds-prod-net]
+    # KHÔNG publish port ra host — chỉ Caddy mới vào được backend, giống production thật.
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: ds-caddy-prod
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ds-caddy-data-prod:/data
+      - ds-caddy-config-prod:/config
+    networks: [ds-prod-net]
+
+networks:
+  ds-prod-net:
+
+volumes:
+  ds-pgdata-prod:
+  ds-caddy-data-prod:
+  ds-caddy-config-prod:
