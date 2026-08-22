@@ -31,6 +31,10 @@ app:
   # Stage 1 — object storage cho ảnh (R2/MinIO). Mặc định "local" = hành vi Stage 0 y hệt cũ.
   storage:
     mode: local
+  # Stage 1 — FCM. Mặc định TẮT: chưa có Firebase project thật thì app chạy y hệt Stage 0
+  # (outbox worker chỉ log qua LogOnlyFcmSender, không crash, không cần cấu hình gì thêm).
+  firebase:
+    enabled: false
 
 ---
 # Profile local — nạp thêm mock data 2 shop (V900/V901), CHỈ ở local.
