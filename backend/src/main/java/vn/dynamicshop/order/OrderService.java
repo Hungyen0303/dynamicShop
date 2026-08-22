@@ -67,11 +67,30 @@ public class OrderService {
         return OrderResponseDto.from(order);
     }
 
+    /**
+     * Nút "Đã nhận tiền" của merchant_app. Đi qua trục payment RIÊNG BIỆT, không đụng
+     * {@code orderStatus} — bất biến #5, hai trục độc lập: quán nhận tiền trước khi giao
+     * xong là chuyện bình thường, và đơn giao xong mà chưa thu được tiền cũng vậy.
+     *
+     * Vẫn enqueue outbox dù chính người bấm nút là người sẽ nhận push: một quán thường có
+     * nhiều máy (điện thoại chủ + máy nhân viên), máy còn lại cần biết tiền đã thu rồi để
+     * không đòi khách lần hai.
+     */
+    @Transactional
+    public OrderResponseDto transitionPaymentStatus(UUID orderId, PaymentStatus to, OrderEvent.ActorType actorType,
+            UUID actorId, String reason) {
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new OrderNotFoundException(orderId));
+        orderStateMachine.transitionPaymentStatus(order, to, actorType, actorId, reason);
+        outboxPublisher.enqueue(order.getId(), "ORDER_PAYMENT_CHANGED", outboxPayload(order));
+        return OrderResponseDto.from(order);
+    }
+
     private Map<String, Object> outboxPayload(Order order) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("orderId", order.getId().toString());
         payload.put("code", order.getCode());
         payload.put("orderStatus", order.getOrderStatus().name());
+        payload.put("paymentStatus", order.getPaymentStatus().name());
         payload.put("total", order.getTotal());
         payload.put("at", Instant.now().toString());
         return payload;

@@ -14,6 +14,10 @@ import vn.dynamicshop.catalog.CategoryRepository;
 import vn.dynamicshop.common.tenant.Tenant;
 import vn.dynamicshop.common.tenant.TenantContext;
 import vn.dynamicshop.common.tenant.TenantRepository;
+import vn.dynamicshop.merchant.Merchant;
+import vn.dynamicshop.merchant.MerchantRepository;
+import vn.dynamicshop.notification.DeviceToken;
+import vn.dynamicshop.notification.DeviceTokenRepository;
 import vn.dynamicshop.order.Order;
 import vn.dynamicshop.order.OrderRepository;
 
@@ -33,6 +37,12 @@ class TenantIsolationTest extends AbstractIntegrationTest {
     private JdbcTemplate jdbcTemplate;
     @Autowired
     private RawSqlProbe rawSqlProbe;
+    @Autowired
+    private MerchantRepository merchantRepository;
+    @Autowired
+    private DeviceTokenRepository deviceTokenRepository;
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     private Tenant createTenant(String slug) {
         // Bảng tenants không có RLS — không cần TenantContext để ghi.
@@ -94,6 +104,40 @@ class TenantIsolationTest extends AbstractIntegrationTest {
         try {
             assertThat(categoryRepository.findAll()).hasSize(2);
             assertThat(categoryRepository.findById(catA.getId())).isEmpty();
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    /**
+     * Bảng mới của sprint 2.1 (V2). Đưa vào đây theo checklist bắt buộc của
+     * .claude/skills/tenant-isolation — {@code moi_bang_co_tenant_id_deu_bat_rls} bên dưới
+     * đã tự phát hiện bảng mới và kiểm ENABLE/FORCE, nhưng nó không chứng minh được việc
+     * ĐỌC bị chặn thật. Với device token, đọc nhầm không chỉ là lộ dữ liệu: token của quán
+     * khác là thứ đủ để đẩy thông báo giả tới điện thoại của họ.
+     */
+    @Test
+    void tenant_b_khong_doc_duoc_device_token_cua_a() {
+        Tenant a = createTenant("dev-a-" + UUID.randomUUID());
+        Tenant b = createTenant("dev-b-" + UUID.randomUUID());
+
+        String tokenA = "isolation-token-" + UUID.randomUUID();
+        TenantContext.set(a.getId());
+        UUID deviceIdA;
+        try {
+            Merchant merchantA = merchantRepository.save(new Merchant("0915000001",
+                    passwordEncoder.encode("x"), "Chủ A", Merchant.MerchantRole.OWNER));
+            deviceIdA = deviceTokenRepository.save(new DeviceToken(merchantA.getId(), tokenA,
+                    DeviceToken.Platform.ANDROID, "1.0.0")).getId();
+        } finally {
+            TenantContext.clear();
+        }
+
+        TenantContext.set(b.getId());
+        try {
+            assertThat(deviceTokenRepository.findAll()).isEmpty();
+            assertThat(deviceTokenRepository.findByToken(tokenA)).isEmpty();
+            assertThat(deviceTokenRepository.findById(deviceIdA)).isEmpty();
         } finally {
             TenantContext.clear();
         }

@@ -27,7 +27,17 @@ app:
     # commit tạm ở đây vì local-only, không có luồng tiền/OTP nào phụ thuộc vào nó — DỪNG
     # LẠI và chuyển sang secret store thật trước khi có Stage 1 (VPS thật).
     secret: "dev-only-jwt-secret-DO-NOT-USE-IN-PROD-32bytes+"
-    expiration-minutes: 720
+    # Sprint 2.1 — TTL DÀI (30 ngày) + merchant_app tự đăng nhập lại khi gặp 401. Chủ dự án
+    # duyệt hướng này qua AskUserQuestion 2026-08-22, KHÔNG dùng refresh token (progress.md
+    # mục 3, quyết định #12).
+    #
+    # Vì sao không giữ 720 phút (12 tiếng) như Stage 0: merchant_app chạy nền liên tục cả
+    # ngày và kênh nhận đơn phụ thuộc token còn sống. Token chết giữa ca mà không có cách
+    # lấy lại = im lặng ngừng nhận đơn = sót đơn, hỏng đúng ưu tiên #1 của cả sản phẩm
+    # (docs/11-merchant-app.md). Đánh đổi đã biết và đã chấp nhận: token sống lâu thì thu
+    # hồi một phiên bị lộ khó hơn — chưa có bảng phiên để revoke, đổi secret là cách duy
+    # nhất và nó đá văng toàn bộ merchant.
+    expiration-minutes: 43200
   # Stage 1 — object storage cho ảnh (R2/MinIO). Mặc định "local" = hành vi Stage 0 y hệt cũ.
   storage:
     mode: local

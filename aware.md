@@ -44,11 +44,13 @@ Chỉ để `HEALTHCHECK`/Compose healthcheck gọi `/actuator/health` — image
 (`eclipse-temurin:21-jre`) không có sẵn curl/wget. Tăng nhẹ kích thước image, đổi lại có
 healthcheck thật thay vì đoán container sống.
 
-## FCM chưa gửi được push nào dù bật Firebase thật
+## ~~FCM chưa gửi được push nào dù bật Firebase thật~~ — đã hết hiệu lực một phần (sprint 2.1)
 
-`deviceToken` luôn `null` trong `OutboxBatchProcessor` vì chưa có bảng đăng ký device token
-merchant (Stage 2). Đã note kỹ trong `missing_config.md` mục 3 — không phải bug, chỉ chưa có
-consumer.
+~~`deviceToken` luôn `null` trong `OutboxBatchProcessor` vì chưa có bảng đăng ký device token
+merchant (Stage 2).~~ Sprint 2.1 đã thêm bảng `device_tokens` + route đăng ký, và
+`OutboxBatchProcessor` giờ fan-out tới token thật của đúng tenant. Phần **vẫn còn đúng**: chưa gửi
+được push thật vì `FcmSender` còn là `LogOnlyFcmSender` — chờ service-account Firebase
+(`missing_config.md` mục 3). Xem phần "Sprint 2.1" cuối file.
 
 ## customer_app: đã nối Firebase Crashlytics (2026-08-22), có build-check thật
 
@@ -82,3 +84,83 @@ minh nguồn gốc. Phần việc còn lại (Dockerfile, compose, Caddyfile, fi
 việc trực tiếp với chủ dự án tự làm, không giao thêm cho agent mới. `progress.md` hiện vẫn ở dạng
 uncommitted — nếu chủ dự án muốn approval này thành bản ghi bền vững (để agent sau không hỏi lại),
 cân nhắc tự commit (mình không tự commit vì chỉ commit khi được yêu cầu).
+
+---
+
+# Sprint 2.1 — backend nhận đơn (2026-08-22)
+
+## 🔴 Bẫy thật đã gặp và sửa: query dẫn xuất của Spring Data KHÔNG có transaction → mất GUC tenant
+
+Sáu test đỏ khi chạy lần đầu với lỗi `invalid input syntax for type uuid: ""` từ Postgres. Nguyên nhân
+không phải ở test: `SimpleJpaRepository` có `@Transactional(readOnly = true)` ở mức class, nhưng nó
+**chỉ phủ các method kế thừa** (`save`, `findById`, `findAll`) — **query dẫn xuất khai báo trên
+interface của mình (`findByToken`, `findByRevokedAtIsNull`, `findByUpdatedAtGreaterThanEqual...`) chạy
+KHÔNG có transaction nào**. Không transaction → `TenantAwareJpaTransactionManager.doBegin()` không
+chạy → GUC `app.tenant_id` không được set → policy RLS đánh giá `current_setting('app.tenant_id',
+true)::uuid` trên chuỗi rỗng và ném lỗi.
+
+Đây đúng là họ lỗi mà `TenantAwareJpaTransactionManager` được viết ra để chống (xem Javadoc của nó về
+việc AOP pointcut không bắt được repository proxy) — chỉ khác đường vào. **Production không bị ảnh
+hưởng**: mọi lời gọi thật đều nằm trong service `@Transactional` nên transaction đã có sẵn; chỉ lời
+gọi repository trực tiếp (test, và bất kỳ code nào sau này) mới lộ.
+
+**Đã sửa**: đặt `@Transactional(readOnly = true)` trên TỪNG method dẫn xuất của `DeviceTokenRepository`,
+`OrderRepository`, `OrderItemRepository`. Cố ý không đặt ở mức interface — mức interface sẽ phủ cả
+`save()` kế thừa và biến mọi lệnh ghi thành read-only.
+
+## ⚠️ Cần chủ dự án quyết: policy RLS nên chịu được GUC rỗng?
+
+Phát hiện kèm theo, CHƯA sửa vì nó là thay đổi schema trên 11 bảng và đáng để chủ dự án quyết:
+
+Policy hiện tại (V1) là `USING (tenant_id = current_setting('app.tenant_id', true)::uuid)`. Khi GUC
+chưa từng được set trong session → `current_setting` trả `NULL` → policy lọc rỗng, yên lặng. Nhưng sau
+khi một transaction đã set rồi kết thúc, Postgres để lại **chuỗi rỗng** chứ không phải NULL → `::uuid`
+**ném lỗi**. Cùng một dòng code, hành vi khác nhau tuỳ trạng thái connection pool — đúng họ "bẫy
+connection pool" trong `.claude/skills/tenant-isolation`.
+
+Hai hướng, cần chọn một:
+- **Để nguyên** — thiếu tenant thì nổ to, dễ phát hiện. Nhược điểm: lỗi 500 với thông báo DB khó hiểu,
+  và không nhất quán (lúc nổ lúc không).
+- **V3 đổi policy sang `NULLIF(current_setting('app.tenant_id', true), '')::uuid`** — thiếu tenant thì
+  luôn lọc rỗng, nhất quán. Nhược điểm: lỗi quên set tenant trở nên im lặng hơn.
+
+Mình nghiêng về hướng thứ hai + giữ nguyên `@Transactional` ở trên như tuyến phòng thủ chính, nhưng
+đây là quyết định về hành vi an toàn nên không tự quyết.
+
+## Bảng `device_tokens` unique THEO TENANT, không unique toàn cục
+
+`UNIQUE (tenant_id, token)`. Đúng hơn về mặt mô hình sẽ là unique toàn cục (một token = một máy = một
+chủ), nhưng app **không thể tự dọn dòng của tenant khác**: RLS chặn, và role BYPASSRLS chỉ được dùng
+trong package `admin/`. Unique toàn cục sẽ khiến việc đăng ký chết bằng lỗi ràng buộc 23505 không diễn
+giải nổi cho người dùng.
+
+Hệ quả thật: một chiếc điện thoại được đăng nhập ở hai quán khác nhau sẽ nhận push của **cả hai**. Đúng
+nếu là người có hai quán, sai nếu là máy chuyển tay. Cách dọn đúng cho token cũ là phản hồi
+`UNREGISTERED` của chính FCM — cần Firebase thật, sprint 2.5. Ghi nhận giới hạn thay vì giả vờ đã giải
+quyết.
+
+## `server_time` / `has_more` là snake_case, lệch với phần còn lại của API
+
+`docs/30-backend.md` chốt shape `{ orders, server_time, has_more }` từ trước, trong khi mọi field khác
+toàn hệ thống là camelCase (kể cả các field bên trong `orders[]`). Đã **giữ đúng văn bản** thay vì tự ý
+chuẩn hoá. Nếu chủ dự án muốn đổi sang `serverTime`/`hasMore` cho nhất quán thì **bây giờ là lúc rẻ
+nhất** — merchant_app chưa viết, chưa có client nào phụ thuộc. Sau sprint 2.2 thì đổi sẽ tốn hơn.
+
+## `/payment` nhận cả 4 giá trị PaymentStatus, không chỉ PAID
+
+Nút trên app hiện chỉ có "Đã nhận tiền", nhưng endpoint chấp nhận `UNPAID|PARTIAL|PAID|REFUNDED` và để
+state machine quyết chuyển nào hợp lệ. Lý do: hoàn tiền và thu một phần là chuyện có thật ở quán, state
+machine đã biết luật rồi, chặn bớt ở tầng HTTP chỉ để mở lại ở sprint sau là việc thừa. Nếu muốn khoá
+cứng chỉ cho `PAID` ở giai đoạn này, nói một tiếng.
+
+## Đổi payment vẫn enqueue outbox (push)
+
+Người bấm nút "Đã nhận tiền" cũng là người sẽ nhận push — nghe có vẻ thừa. Vẫn làm vì một quán thường
+có nhiều máy (điện thoại chủ + máy nhân viên) và máy còn lại cần biết tiền đã thu để không đòi khách
+lần hai. Nếu thấy ồn, sprint 2.2 có thể lọc ở phía client theo `actor_id`.
+
+## JWT 30 ngày — thu hồi phiên hiện KHÔNG có cách nào ngoài đổi secret
+
+Hệ quả trực tiếp của quyết định #12 (TTL dài, không refresh token). Chưa có bảng phiên, nên nếu một
+máy bị mất/bị lộ token, cách duy nhất là đổi `APP_JWT_SECRET` — và việc đó đá văng **toàn bộ** merchant
+của mọi tenant cùng lúc. Chấp nhận được ở quy mô hiện tại; nêu ra để không ai bất ngờ lúc cần.

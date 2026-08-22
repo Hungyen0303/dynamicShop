@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.dynamicshop.notification.DeviceTokenService;
 import vn.dynamicshop.notification.FcmSender;
 
 /**
@@ -18,10 +19,16 @@ import vn.dynamicshop.notification.FcmSender;
  *
  * Bất biến #7 — đây là NƠI DUY NHẤT gọi {@link FcmSender}, ngoài mọi transaction nghiệp vụ
  * tạo/đổi đơn. Dòng log {@code [outbox]} bên dưới GIỮ NGUYÊN như Stage 0 (không đổi hành vi
- * quan sát được khi chưa cấu hình gì) — lời gọi {@code fcmSender.send(...)} là đường đi THẬT
- * cho việc gửi push, cộng thêm chứ không thay thế: khi fallback (chưa có Firebase),
+ * quan sát được khi chưa cấu hình gì) — khi fallback (chưa có Firebase),
  * {@code LogOnlyFcmSender} tự log dòng riêng (tag {@code [fcm]}), không đụng tới dòng
  * {@code [outbox]} này.
+ *
+ * 🔴 Điểm dễ rò rỉ nhất trong sprint 2.1: token được lấy TRONG transaction đã có GUC tenant
+ * của vòng lặp hiện tại ({@link OutboxWorker} set {@code TenantContext} cho từng tenant),
+ * nên {@code device_tokens} đã bị Hibernate {@code @TenantId} lọc và RLS chặn lần cuối. Gửi
+ * đơn của shop này sang máy của shop khác là loại lỗi mất cả tỉnh, nên nó có test riêng
+ * ({@code OutboxFcmFanoutTest#khong_gui_push_sang_thiet_bi_cua_tenant_khac}) chứ không chỉ
+ * dựa vào việc đọc code thấy đúng.
  */
 @Service
 public class OutboxBatchProcessor {
@@ -31,25 +38,40 @@ public class OutboxBatchProcessor {
 
     private final OutboxRepository outboxRepository;
     private final FcmSender fcmSender;
+    private final DeviceTokenService deviceTokenService;
 
-    public OutboxBatchProcessor(OutboxRepository outboxRepository, FcmSender fcmSender) {
+    public OutboxBatchProcessor(OutboxRepository outboxRepository, FcmSender fcmSender,
+            DeviceTokenService deviceTokenService) {
         this.outboxRepository = outboxRepository;
         this.fcmSender = fcmSender;
+        this.deviceTokenService = deviceTokenService;
     }
 
     @Transactional
     public void processCurrentTenantBatch() {
         List<OutboxEvent> pending = outboxRepository
                 .findByProcessedAtIsNullOrderByCreatedAtAsc(Pageable.ofSize(BATCH_SIZE));
+        if (pending.isEmpty()) {
+            return;
+        }
+
+        // Lấy một lần cho cả batch, không phải mỗi event — batch thường là nhiều đơn của
+        // CÙNG một tenant, và danh sách máy của một quán gần như không đổi trong vài giây.
+        List<String> tokens = deviceTokenService.activeTokensForCurrentTenant();
+
         for (OutboxEvent event : pending) {
             log.info("[outbox] tenant={} type={} aggregateId={} payload={}",
                     event.getTenantId(), event.getType(), event.getAggregateId(), event.getPayload());
 
-            // Stage 1: chưa có bảng đăng ký device token merchant (Stage 2, merchant_app) —
-            // deviceToken luôn null. FcmSender xử lý null an toàn (LogOnlyFcmSender log,
-            // FirebaseFcmSender bỏ qua không gửi). Gọi ở đây, ngoài transaction tạo/đổi đơn
-            // gốc — đúng bất biến #7.
-            fcmSender.send(null, titleFor(event.getType()), bodyFor(event), event.getPayload());
+            if (tokens.isEmpty()) {
+                // Không phải lỗi: quán chưa cài merchant_app, hoặc đã đăng xuất khỏi mọi máy.
+                // Vẫn đánh dấu processed — giữ push lại để "gửi sau" là vô nghĩa với thông báo
+                // đơn hàng, đơn cũ 20 phút không còn đáng kêu chuông.
+                log.info("[fcm] bỏ qua — tenant={} chưa có device token nào còn sống", event.getTenantId());
+            }
+            for (String token : tokens) {
+                fcmSender.send(token, titleFor(event.getType()), bodyFor(event), event.getPayload());
+            }
 
             event.incrementAttempts();
             event.markProcessed();
@@ -60,6 +82,7 @@ public class OutboxBatchProcessor {
         return switch (eventType) {
             case "NEW_ORDER" -> "Đơn hàng mới";
             case "ORDER_STATUS_CHANGED" -> "Đơn hàng cập nhật";
+            case "ORDER_PAYMENT_CHANGED" -> "Cập nhật thanh toán";
             default -> eventType;
         };
     }

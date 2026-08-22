@@ -1,4 +1,4 @@
-# progress.md — Stage 0 ĐÃ ĐÓNG, Stage 1 ĐANG LÀM (local-mocked)
+# progress.md — Stage 0 ĐÓNG · Stage 1 TREO chờ credential · Stage 2 ĐANG LÀM (sprint 2.1 xong)
 
 > File này để agent/session sau đọc và tiếp tục ngay, không cần dò lại từ đầu.
 > Giữ lại làm hồ sơ build Stage 0 — xoá khi nào chủ dự án thấy không cần tra lại nữa.
@@ -25,9 +25,11 @@ Nếu agent sau đọc thấy dòng này mà không chắc — đây LÀ phê du
 và `aware.md` ở root repo (tạo ngày 2026-08-22) để biết chi tiết còn thiếu gì / cần chủ dự án
 check lại gì.
 
-🔴 **Trạng thái mới nhất (2026-08-22, đã hỏi agent `pm`): Stage 1 phần agent làm được ĐÃ XONG,
-đang TẠM DỪNG chờ chủ dự án lấy VPS/domain/Firebase/R2 thật.** Đọc mục 8 trước khi làm bất cứ gì
-tiếp — có điểm dừng rõ ràng + tiêu chí đóng Stage 1 + cảnh báo đừng bàn Stage 2 sớm.
+🔴 **TRẠNG THÁI MỚI NHẤT — ĐỌC MỤC 9, KHÔNG PHẢI MỤC 8.** Chủ dự án đã quyết đi tiếp **Stage 2**
+trong khi Stage 1 để treo chờ VPS/domain/Firebase/R2 thật. **Sprint 2.1 (backend nhận đơn) đã XONG**,
+test 56/56 xanh. Việc tiếp theo là **sprint 2.2 — merchant_app nhận đơn + chuông**. Mục 8 bên dưới
+("DỪNG AGENT", "Stage 2 chưa bàn") là kết luận PM TRƯỚC quyết định này, giữ lại để tra lịch sử chứ
+không còn hiệu lực.
 
 ⚠️ Một agent trước đó (task backend Stage 1 đầu tiên) đã tự viết comment "đã được duyệt trước" ở
 `backend/build.gradle.kts` khi thêm dependency — comment đó ĐÚNG về mặt kết luận (Stage 1 đã được
@@ -379,13 +381,26 @@ Lý do backend trước: merchant_app hiện **không có gì để gọi** (`do
 endpoint, chưa có sync đơn / nút đã-nhận-tiền / upload / write API nào). Thêm nữa theo mục 7, chủ
 dự án là người verify tay FE/mobile — giao Flutter trước khi API có thật là ném việc verify vô ích.
 
-- **2.1 backend nhận đơn** (chặn mọi thứ khác): `GET /v1/merchant/orders/sync?since=` (delta theo
+- **2.1 backend nhận đơn — ✅ XONG (2026-08-22), test 56/56 xanh** (trước sprint là 29): `GET /v1/merchant/orders/sync?since=` (delta theo
   `updated_at`, `server_time`, `has_more`, ETag/304, cap ≤50 đơn/trang, DTO tóm tắt) + test
   cross-tenant · `POST /v1/merchant/orders/{id}/payment` (nút "Đã nhận tiền", **tách khỏi**
   `orderStatus`, **bắt buộc `Idempotency-Key`**) · bảng `device_tokens` + `POST/DELETE
   /v1/merchant/devices` + nối vào `OutboxBatchProcessor` (tra token theo tenant thay cho
   `deviceToken = null`; test rò rỉ token chéo tenant bằng fake sender) · **vòng đời JWT** (xem
   quyết định đã duyệt bên dưới) · cập nhật `docs/90-api-contract.md` **trong cùng commit**.
+  **Kết quả thật:** `V2__device_tokens.sql` (RLS + FORCE + policy + index, đã vào drift-guard
+  `moi_bang_co_tenant_id_deu_bat_rls` tự động) · `GET /v1/merchant/orders/sync` (delta `>=`, cap cứng
+  50, ETag → 304, DTO tóm tắt không kèm dòng món, đếm số món bằng 1 query gộp thay vì N+1) ·
+  `POST /v1/merchant/orders/{id}/payment` (bắt buộc `Idempotency-Key`, hash gồm cả orderId) ·
+  `POST/DELETE /v1/merchant/devices` (upsert theo token, soft-delete khi đăng xuất, token đi trong
+  body không phải query param) · `OutboxBatchProcessor` fan-out tới mọi máy còn sống của đúng tenant ·
+  JWT lên 30 ngày · `docs/90-api-contract.md` cập nhật trong cùng commit.
+
+  **Bẫy thật đã gặp và sửa** (đáng đọc trước khi viết repository mới): query dẫn xuất của Spring Data
+  KHÔNG chạy trong transaction nào → `TenantAwareJpaTransactionManager.doBegin()` không chạy → mất GUC
+  tenant. Sáu test đỏ vì nó. Chi tiết + một câu hỏi đang chờ chủ dự án quyết (policy RLS có nên chịu
+  được GUC rỗng không) nằm ở `aware.md` phần "Sprint 2.1".
+
 - **2.2 merchant_app nhận đơn**: đăng nhập → danh sách đơn qua polling → chi tiết → đổi trạng thái
   qua offline queue → foreground service + notification channel `new_order` + chuông stream ALARM
   lặp đến khi bấm xác nhận + full-screen intent + onboarding pin/autostart theo OEM + màn tự kiểm tra.

@@ -4,8 +4,10 @@ Ghi tay theo `contracts/README.md` — Stage 0 chưa dựng `contracts/openapi.y
 nguồn FE/mobile đọc để biết shape API, **không đọc trực tiếp `.java`**. Nếu code đổi mà file này không
 đổi theo, đó là bug — báo người, đừng tự đoán bên nào đúng (đúng tinh thần `AGENTS.md` mục 6).
 
-Cập nhật lần cuối: khớp với `backend/src/main/java/vn/dynamicshop` tại thời điểm viết (Stage 1, chuẩn bị
-R2/Firebase — outbox worker vẫn chỉ log/fallback, chưa có Firebase project thật).
+Cập nhật lần cuối: **sprint 2.1** (2026-08-22) — thêm 3 endpoint merchant: đồng bộ đơn (polling), nút "Đã
+nhận tiền", đăng ký/thu hồi device token FCM. Outbox worker giờ đã fan-out tới device token thật của đúng
+tenant, nhưng `FcmSender` vẫn là `LogOnlyFcmSender` cho tới khi có Firebase project thật
+(`missing_config.md` mục 3).
 
 ---
 
@@ -42,6 +44,9 @@ filter) trả về:
 | 400 | `MISSING_IDEMPOTENCY_KEY` | Thiếu header `Idempotency-Key` trên endpoint yêu cầu |
 | 400 | `PRODUCT_NOT_FOUND` | `productId` trong đơn không tồn tại/đã xoá |
 | 400 | `INVALID_STATUS_VALUE` | `to` trong transition không khớp enum `OrderStatus` |
+| 400 | `INVALID_PAYMENT_STATUS_VALUE` | `to` trong `/payment` không khớp enum `PaymentStatus` |
+| 400 | `INVALID_SINCE` | `since` trong `/sync` không phải ISO-8601 UTC hợp lệ |
+| 400 | `INVALID_PLATFORM` | `platform` khi đăng ký device không phải `ANDROID`/`IOS` |
 | 401 | *(không có body chuẩn, `response.sendError`)* | JWT sai chữ ký/hết hạn trên route cần auth |
 | 401 | `INVALID_CREDENTIALS` | Sai số điện thoại/mật khẩu lúc login merchant |
 | 404 | `TENANT_NOT_FOUND` | Slug không khớp tenant nào |
@@ -206,14 +211,155 @@ một dòng outbox `ORDER_STATUS_CHANGED` (worker xử lý sau, ngoài transacti
 
 ---
 
-### Chưa có ở Stage 0/1 (đã nêu trong `docs/30-backend.md` nhưng chưa implement)
+### `GET /v1/merchant/orders/sync`
 
-- `GET /v1/merchant/orders/sync?since=...` — endpoint polling cho merchant app đồng bộ đơn. **Chưa có
-  controller/route nào trong code hiện tại.** Sẽ làm khi đến task merchant_app (Stage 2) hoặc khi có yêu
-  cầu cụ thể — đừng gọi endpoint này, nó 404 (route không tồn tại) chứ không phải lỗi nghiệp vụ.
-- Endpoint nút "Đã nhận tiền" (đổi `paymentStatus`) — chưa có route riêng; state machine hỗ trợ transition
-  `paymentStatus` ở tầng `OrderStateMachine`/`Order` nhưng chưa có controller HTTP nào expose việc đổi
-  `paymentStatus` độc lập với `orderStatus`. Ghi chú lại để không FE/mobile không tự đoán có endpoint này.
+Auth bắt buộc. Đây là **kênh nhận đơn foreground** của merchant_app (bất biến #1,
+`docs/11-merchant-app.md`: hai kênh — FCM khi nền, polling 15–20s khi mở app). Endpoint bị gọi nhiều
+nhất hệ thống, mọi thứ ở đây đều tối ưu cho việc "rẻ".
+
+Query param:
+
+| Param | Kiểu | Bắt buộc | Ý nghĩa |
+|---|---|---|---|
+| `since` | ISO-8601 UTC (`2026-08-22T10:15:00Z`) | Không | Chỉ trả đơn có `updated_at >= since`. Bỏ trống = đồng bộ đầy đủ từ đầu (lần cài app đầu). |
+
+Header:
+
+| Header | Bắt buộc | Ý nghĩa |
+|---|---|---|
+| `Authorization: Bearer <jwt>` | **Có** | |
+| `If-None-Match: <etag lần trước>` | Không, **nhưng nên luôn gửi** | Trùng ETag → `304`, không có body |
+
+Response `200`:
+
+```json
+{
+  "orders": [
+    {
+      "id": "uuid",
+      "code": "OD1A2B3C4D",
+      "orderStatus": "PENDING",
+      "paymentStatus": "UNPAID",
+      "total": 90000,
+      "phone": "string|null",
+      "deliveryAddress": "string|null",
+      "note": "string|null",
+      "itemCount": 3,
+      "createdAt": "2026-08-22T10:00:00Z",
+      "updatedAt": "2026-08-22T10:00:00Z"
+    }
+  ],
+  "server_time": "2026-08-22T10:15:00Z",
+  "has_more": false
+}
+```
+
+⚠️ **`server_time` và `has_more` là snake_case**, khác phần còn lại của API (camelCase). Giữ đúng theo
+`docs/30-backend.md` đã chốt từ trước. Các field bên trong `orders[]` vẫn là camelCase.
+
+Ràng buộc mà client **phải** tuân theo — đọc kỹ trước khi viết merchant_app:
+
+1. **Không có `items`.** Bản tóm tắt cố ý bỏ dòng món để tiết kiệm băng thông; `itemCount` đủ cho màn
+   danh sách. Muốn chi tiết món thì mở từng đơn (endpoint chi tiết chưa có — sprint sau).
+2. **Trang tối đa 50 đơn, client KHÔNG đổi được** (không có `?limit=`). `has_more: true` nghĩa là gọi
+   tiếp với `since` = `updatedAt` của đơn cuối cùng nhận được.
+3. **Lấy mốc `since` cho lần sau từ `server_time` hoặc `updatedAt` của đơn, KHÔNG lấy từ đồng hồ máy.**
+   Đồng hồ điện thoại lệch vài phút là chuyện thường; lệch về tương lai sẽ khiến app bỏ qua vĩnh viễn
+   những đơn nằm trong khoảng lệch.
+4. **Bộ lọc là `>=` chứ không phải `>`** → đơn ở đúng mốc `since` sẽ xuất hiện lại ở lần gọi sau.
+   Client **bắt buộc dedupe theo `id`**. (Việc này vốn đã bắt buộc vì push là at-least-once — bất biến
+   #4.) Lý do dùng `>=`: nhiều đơn có thể trùng `updated_at`, dùng `>` sẽ nhảy mất phần còn lại của
+   nhóm trùng mốc khi trang bị cắt ngang giữa nhóm.
+5. **Luôn gửi lại `If-None-Match`.** Không gửi thì app tự kéo cả trang JSON mỗi 15 giây suốt ngày trên
+   4G, dù không có gì mới.
+
+`since` sai định dạng → `400 INVALID_SINCE`.
+
+---
+
+### `POST /v1/merchant/orders/{id}/payment`
+
+Auth bắt buộc. Header `Idempotency-Key`: **BẮT BUỘC** — thiếu → `400 MISSING_IDEMPOTENCY_KEY`.
+
+Đây là nút "Đã nhận tiền". Khác với `/transition` ngay trên (không cần key): route này đụng tiền, và
+merchant_app đẩy mọi hành động qua offline queue có retry (bất biến #3) — một lần retry trên mạng chập
+chờn không được phép thành hai lần ghi nhận thu tiền.
+
+Request:
+
+```json
+{ "to": "PAID", "reason": "string|null" }
+```
+
+`to` ∈ `UNPAID | PARTIAL | PAID | REFUNDED`. Sai giá trị (không khớp enum) → `400
+INVALID_PAYMENT_STATUS_VALUE`. Đúng enum nhưng không phải transition hợp lệ theo
+`contracts/order-states.json#/payment_status` → `409 INVALID_PAYMENT_TRANSITION`.
+
+Response `200` — `OrderResponseDto` (shape giống response tạo đơn), với `paymentStatus` đã cập nhật.
+
+🔴 **`orderStatus` KHÔNG đổi theo** — hai trục độc lập (bất biến #5). Quán nhận tiền trước khi giao xong
+là chuyện bình thường, và ngược lại cũng vậy. Đừng suy ra trạng thái đơn từ trạng thái thanh toán.
+
+Idempotency ở đây tính hash trên `(orderId + body)`, nên cùng một `Idempotency-Key` dùng lại cho **đơn
+khác** sẽ ra `409 IDEMPOTENCY_KEY_CONFLICT` chứ không âm thầm trả về đơn cũ.
+
+Order không tồn tại (hoặc thuộc tenant khác) → `404 ORDER_NOT_FOUND`.
+
+Mỗi lần đổi thành công ghi một dòng `order_events` với `to_status = "PAYMENT:<trạng thái>"` (tiền tố
+`PAYMENT:` để phân biệt với trục `order_status` vì hai trục dùng chung bảng), và enqueue outbox
+`ORDER_PAYMENT_CHANGED`.
+
+---
+
+### `POST /v1/merchant/devices` — đăng ký FCM token
+
+Auth bắt buộc. Không cần `Idempotency-Key` (upsert theo token, idempotent tự nhiên).
+
+merchant_app gọi route này **sau khi đăng nhập** và **mỗi lần FCM xoay token**.
+
+Request:
+
+```json
+{ "token": "chuỗi opaque từ FCM", "platform": "ANDROID", "appVersion": "1.0.0" }
+```
+
+`platform` ∈ `ANDROID | IOS`, không phân biệt hoa thường. Sai → `400 INVALID_PLATFORM`.
+`appVersion` optional.
+
+Response `200`:
+
+```json
+{ "id": "uuid", "platform": "ANDROID", "appVersion": "1.0.0", "lastSeenAt": "2026-08-22T10:00:00Z" }
+```
+
+Cố ý **không trả lại `token`** — client vừa gửi nó lên, không có lý do để nó xuất hiện thêm lần nữa
+trong log/proxy trên đường về.
+
+Đăng ký lại cùng token → cập nhật dòng cũ, **không** tạo dòng thứ hai (nếu không outbox worker sẽ gửi
+trùng lên cùng một máy).
+
+### `DELETE /v1/merchant/devices` — thu hồi khi đăng xuất
+
+Auth bắt buộc. Token đi trong **body**, không phải query param (query param sẽ nằm lại trong access log
+của Caddy và mọi proxy trên đường đi; token đó đủ để đẩy thông báo giả tới máy chủ quán).
+
+```json
+{ "token": "chuỗi opaque từ FCM" }
+```
+
+Response `204 No Content`. Token không tồn tại cũng trả `204` — đăng xuất phải luôn thành công phía
+người dùng.
+
+⚠️ **Push hiện vẫn chưa gửi thật.** Đường ống đã đủ (đơn mới → outbox → worker → resolve token đúng
+tenant → gọi sender), nhưng `FcmSender` còn là `LogOnlyFcmSender` cho tới khi có service-account Firebase
+thật (`missing_config.md` mục 3). Đăng ký token vẫn có tác dụng ngay: nó là dữ liệu mà sprint 2.5 chỉ
+việc cắm vào.
+
+---
+
+### Chưa có (ghi lại để FE/mobile không tự đoán)
+
+- **Chi tiết một đơn** (kèm dòng món) cho merchant — chưa có route. `/sync` chỉ trả bản tóm tắt.
 - Upload ảnh sản phẩm — chưa có endpoint HTTP nào (`Product.imageUrl` hiện là String field, chưa có
   consumer thật ở Stage 0/1; hạ tầng `ImageStorageService` được dựng sẵn ở Stage 1 nhưng chưa nối HTTP
   endpoint — xem package `common/storage`).
@@ -229,6 +375,10 @@ một dòng outbox `ORDER_STATUS_CHANGED` (worker xử lý sau, ngoài transacti
 | `POST /v1/s/{slug}/orders` | Không | **Bắt buộc** |
 | `POST /v1/merchant/{slug}/auth/login` | Không | Không |
 | `POST /v1/merchant/orders/{id}/transition` | **Bắt buộc** | Không |
+| `GET /v1/merchant/orders/sync` | **Bắt buộc** | Không (nên gửi `If-None-Match`) |
+| `POST /v1/merchant/orders/{id}/payment` | **Bắt buộc** | **Bắt buộc** |
+| `POST /v1/merchant/devices` | **Bắt buộc** | Không |
+| `DELETE /v1/merchant/devices` | **Bắt buộc** | Không |
 
 ---
 
@@ -238,4 +388,11 @@ một dòng outbox `ORDER_STATUS_CHANGED` (worker xử lý sau, ngoài transacti
   nguyên `long`, đơn vị đồng — không có phần thập phân, FE không nhân/chia 1000.
 - `id` mọi nơi là UUID dạng string chuẩn (`xxxxxxxx-xxxx-...`), trừ `merchantId` trong response login vốn
   cũng là UUID nhưng field khai báo kiểu `String` (giữ nguyên như code hiện tại, không phải lỗi đánh máy).
-- `createdAt` là ISO-8601 UTC (`Instant` serialize mặc định của Jackson).
+- `createdAt`/`updatedAt`/`lastSeenAt`/`server_time` là ISO-8601 UTC (`Instant` serialize mặc định của
+  Jackson).
+- **JWT merchant sống 30 ngày** (`app.jwt.expiration-minutes: 43200`). Không có refresh token — quyết
+  định của chủ dự án (`progress.md` mục 3, #12). merchant_app phải **lưu số điện thoại + mật khẩu an
+  toàn trên máy và tự gọi lại `/auth/login` khi gặp `401`**; không làm việc này thì app sẽ im lặng ngừng
+  nhận đơn khi token hết hạn giữa ca.
+- `401` từ route cần auth **không có body JSON chuẩn** (`response.sendError` từ filter, không qua
+  `GlobalExceptionHandler`). Client đừng parse body của 401 — chỉ dựa vào status code.
